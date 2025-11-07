@@ -11,14 +11,37 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import type { Database } from "@/integrations/supabase/types";
+
+type Colaborador = Database["public"]["Tables"]["colaborador"]["Row"];
+type ColaboradorPrivate = Database["public"]["Tables"]["colaborador_private"]["Row"];
 
 export default function ColaboradorDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { userRole } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [colaborador, setColaborador] = useState<any>(null);
-  const [privateData, setPrivateData] = useState<any>(null);
+  type EditableColaborador = Pick<
+    Colaborador,
+    | "id_colaborador"
+    | "nome"
+    | "sobrenome"
+    | "apelido"
+    | "cargo"
+    | "email_corporativo"
+    | "id_clickup"
+    | "id_slack"
+    | "data_admissao"
+    | "colab_ativo"
+    | "colab_ferias"
+    | "colab_afastado"
+    | "admin"
+    | "supervisor"
+  >;
+  type PrivateData = Pick<ColaboradorPrivate, "email_pessoal" | "whatsapp" | "data_aniversario">;
+
+  const [colaborador, setColaborador] = useState<EditableColaborador | null>(null);
+  const [privateData, setPrivateData] = useState<PrivateData | null>(null);
   const [role, setRole] = useState<"user" | "supervisor" | "admin">("user");
 
   useEffect(() => {
@@ -33,7 +56,9 @@ export default function ColaboradorDetalhes() {
   const fetchColaborador = async () => {
     const { data, error } = await supabase
       .from("colaborador")
-      .select("*")
+      .select(
+        "id_colaborador, nome, sobrenome, apelido, cargo, email_corporativo, id_clickup, id_slack, data_admissao, colab_ativo, colab_ferias, colab_afastado, admin, supervisor"
+      )
       .eq("id_colaborador", id)
       .single();
 
@@ -43,14 +68,17 @@ export default function ColaboradorDetalhes() {
       return;
     }
 
-    setColaborador(data);
-    setRole(data.admin ? "admin" : data.supervisor ? "supervisor" : "user");
+    if (data) {
+      const colaboradorData = data as EditableColaborador;
+      setColaborador(colaboradorData);
+      setRole(colaboradorData.admin ? "admin" : colaboradorData.supervisor ? "supervisor" : "user");
+    }
   };
 
   const fetchPrivateData = async () => {
     const { data, error } = await supabase
       .from("colaborador_private")
-      .select("*")
+      .select("email_pessoal, whatsapp, data_aniversario")
       .eq("id_colaborador", id)
       .maybeSingle();
 
@@ -59,11 +87,13 @@ export default function ColaboradorDetalhes() {
       return;
     }
 
-    setPrivateData(data || {
-      email_pessoal: "",
-      whatsapp: "",
-      data_aniversario: "",
-    });
+    setPrivateData(
+      data || {
+        email_pessoal: "",
+        whatsapp: "",
+        data_aniversario: "",
+      }
+    );
   };
 
   const handleUpdateColaborador = async (e: React.FormEvent) => {
@@ -71,15 +101,36 @@ export default function ColaboradorDetalhes() {
     setLoading(true);
 
     try {
-      const payload = {
-        ...colaborador,
-        admin: role === "admin",
-        supervisor: role === "supervisor",
-      };
+      if (!colaborador || !id) {
+        throw new Error("Colaborador não encontrado");
+      }
+
+      const allowedFields = [
+        "nome",
+        "sobrenome",
+        "apelido",
+        "cargo",
+        "email_corporativo",
+        "id_clickup",
+        "id_slack",
+        "data_admissao",
+        "colab_ativo",
+        "colab_ferias",
+        "colab_afastado",
+      ] as const;
+
+      const payload = allowedFields.reduce((acc, key) => {
+        acc[key] = colaborador[key] ?? null;
+        return acc;
+      }, {} as Database["public"]["Tables"]["colaborador"]["Update"]);
 
       const { error: colaboradorError } = await supabase
         .from("colaborador")
-        .update(payload)
+        .update({
+          ...payload,
+          admin: role === "admin",
+          supervisor: role === "supervisor",
+        })
         .eq("id_colaborador", id);
 
       if (colaboradorError) throw colaboradorError;
@@ -89,7 +140,9 @@ export default function ColaboradorDetalhes() {
           .from("colaborador_private")
           .upsert({
             id_colaborador: id,
-            ...privateData,
+            email_pessoal: privateData.email_pessoal ?? null,
+            whatsapp: privateData.whatsapp ?? null,
+            data_aniversario: privateData.data_aniversario ?? null,
           });
 
         if (privateError) {

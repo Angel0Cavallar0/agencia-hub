@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
-import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Table,
@@ -33,13 +31,46 @@ export default function ClickupTarefas() {
   }, []);
 
   const fetchData = async () => {
-    const [tarefasRes, clientesRes, colaboradoresRes] = await Promise.all([
-      supabase.from("informacoes_tasks_clickup").select("*"),
+    const [tarefasRes, clientesRes, colaboradoresRes, pastasRes] = await Promise.all([
+      supabase
+        .from("informacoes_tasks_clickup")
+        .select(
+          "id_subtask, nome_subtask, status, prioridade, id_colaborador_clickup, nome_colaborador, nome_lista, nome_pasta, data_entrega, id_pasta"
+        ),
       supabase.from("clientes_infos").select("id_cliente, nome_cliente"),
-      supabase.from("colaborador").select("id_clickup, nome, sobrenome"),
+      supabase
+        .from("colaborador")
+        .select("id_clickup, nome, sobrenome"),
+      supabase
+        .from("clientes_pastas_clickup")
+        .select("id_pasta, id_cliente, nome_cliente"),
     ]);
 
-    if (tarefasRes.data) setTarefas(tarefasRes.data);
+    const pastaMap = (pastasRes.data || []).reduce(
+      (acc, pasta) => {
+        if (pasta.id_pasta) {
+          acc[pasta.id_pasta] = {
+            id_cliente: pasta.id_cliente,
+            nome_cliente: pasta.nome_cliente,
+          };
+        }
+        return acc;
+      },
+      {} as Record<string, { id_cliente: string | null; nome_cliente: string | null }>
+    );
+
+    if (tarefasRes.data) {
+      setTarefas(
+        tarefasRes.data.map((tarefa) => {
+          const info = tarefa.id_pasta ? pastaMap[tarefa.id_pasta] : undefined;
+          return {
+            ...tarefa,
+            clienteId: info?.id_cliente || null,
+            clienteNome: info?.nome_cliente || null,
+          };
+        })
+      );
+    }
     if (clientesRes.data) setClientes(clientesRes.data);
     if (colaboradoresRes.data) setColaboradores(colaboradoresRes.data);
   };
@@ -47,6 +78,7 @@ export default function ClickupTarefas() {
   const statusOptions = Array.from(new Set(tarefas.map((t) => t.status).filter(Boolean)));
 
   const filteredTarefas = tarefas.filter((tarefa) => {
+    if (filtroCliente && tarefa.clienteId !== filtroCliente) return false;
     if (filtroColaborador && tarefa.id_colaborador_clickup !== filtroColaborador) return false;
     if (filtroStatus && tarefa.status !== filtroStatus) return false;
     return true;
@@ -76,6 +108,20 @@ export default function ClickupTarefas() {
         </div>
 
         <div className="flex gap-4 flex-wrap">
+          <Select value={filtroCliente} onValueChange={setFiltroCliente}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filtrar por cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Todos</SelectItem>
+              {clientes.map((cliente) => (
+                <SelectItem key={cliente.id_cliente} value={cliente.id_cliente}>
+                  {cliente.nome_cliente}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Select value={filtroColaborador} onValueChange={setFiltroColaborador}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Filtrar por colaborador" />
@@ -109,9 +155,10 @@ export default function ClickupTarefas() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Tarefa</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Prioridade</TableHead>
+              <TableHead>Tarefa</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Prioridade</TableHead>
                 <TableHead>Colaborador</TableHead>
                 <TableHead>Lista</TableHead>
                 <TableHead>Pasta</TableHead>
@@ -125,6 +172,7 @@ export default function ClickupTarefas() {
                   className={isOverdue(tarefa.data_entrega, tarefa.status) ? "bg-destructive/10" : ""}
                 >
                   <TableCell className="font-medium">{tarefa.nome_subtask}</TableCell>
+                  <TableCell>{tarefa.clienteNome || "-"}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{tarefa.status}</Badge>
                   </TableCell>

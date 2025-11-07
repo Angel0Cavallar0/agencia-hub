@@ -52,8 +52,15 @@ export default function ClickupResponsaveis() {
   const fetchData = async () => {
     try {
       const [clientesRes, colaboradoresRes] = await Promise.all([
-        supabase.from("clientes_infos").select("*").order("nome_cliente", { ascending: true }),
-        supabase.from("colaborador").select("*").eq("colab_ativo", true).order("nome", { ascending: true }),
+        supabase
+          .from("clientes_infos")
+          .select("id_cliente, nome_cliente")
+          .order("nome_cliente", { ascending: true }),
+        supabase
+          .from("colaborador")
+          .select("id_clickup, nome, sobrenome, apelido")
+          .eq("colab_ativo", true)
+          .order("nome", { ascending: true }),
       ]);
 
       if (clientesRes.data) setClientes(clientesRes.data);
@@ -69,7 +76,9 @@ export default function ClickupResponsaveis() {
   const fetchResponsaveis = async () => {
     const { data, error } = await supabase
       .from("clickup_responsaveis")
-      .select("*")
+      .select(
+        "id_cliente, atendimento_id, design_id, aprovacao_video_id, aprovacao_arte_id, revisao_texto_id, filmmaker_id, gestor_trafego_id, gerente_conta_id"
+      )
       .eq("id_cliente", selectedCliente)
       .maybeSingle();
 

@@ -34,17 +34,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import type { Database } from "@/integrations/supabase/types";
+
+type Cliente = Database["public"]["Tables"]["clientes_infos"]["Row"];
+type Contato = Database["public"]["Tables"]["cliente_contato"]["Row"];
 
 export default function ClienteDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [cliente, setCliente] = useState<any>(null);
-  const [contatos, setContatos] = useState<any[]>([]);
+  const [cliente, setCliente] = useState<Cliente | null>(null);
+  const [contatos, setContatos] = useState<Contato[]>([]);
   const [openContatoDialog, setOpenContatoDialog] = useState(false);
-  const [editContato, setEditContato] = useState<any>(null);
+  const [editContato, setEditContato] = useState<Contato | null>(null);
   const [deleteContatoId, setDeleteContatoId] = useState<string | null>(null);
-  const [contatoFormData, setContatoFormData] = useState({
+  const [contatoFormData, setContatoFormData] = useState<
+    Pick<Contato, "nome_contato" | "email" | "numero_whatsapp" | "id_grupo_whatsapp">
+  >({
     nome_contato: "",
     email: "",
     numero_whatsapp: "",
@@ -61,7 +67,9 @@ export default function ClienteDetalhes() {
   const fetchCliente = async () => {
     const { data, error } = await supabase
       .from("clientes_infos")
-      .select("*")
+      .select(
+        "id_cliente, nome_cliente, cnpj, segmento, nome_responsavel, data_inauguracao, data_contrato, cliente_ativo, gestao_trafego"
+      )
       .eq("id_cliente", id)
       .single();
 
@@ -77,7 +85,7 @@ export default function ClienteDetalhes() {
   const fetchContatos = async () => {
     const { data, error } = await supabase
       .from("cliente_contato")
-      .select("*")
+      .select("id_contato, nome_contato, email, numero_whatsapp, id_grupo_whatsapp")
       .eq("id_cliente", id);
 
     if (error) {
@@ -85,7 +93,7 @@ export default function ClienteDetalhes() {
       return;
     }
 
-    setContatos(data || []);
+    setContatos((data ?? []) as Contato[]);
   };
 
   const handleUpdateCliente = async (e: React.FormEvent) => {
@@ -93,9 +101,29 @@ export default function ClienteDetalhes() {
     setLoading(true);
 
     try {
+      if (!cliente) {
+        throw new Error("Cliente não encontrado");
+      }
+
+      const allowedFields = [
+        "nome_cliente",
+        "cnpj",
+        "segmento",
+        "nome_responsavel",
+        "data_inauguracao",
+        "data_contrato",
+        "cliente_ativo",
+        "gestao_trafego",
+      ] as const;
+
+      const payload = allowedFields.reduce((acc, key) => {
+        acc[key] = cliente[key] ?? null;
+        return acc;
+      }, {} as Database["public"]["Tables"]["clientes_infos"]["Update"]);
+
       const { error } = await supabase
         .from("clientes_infos")
-        .update(cliente)
+        .update(payload)
         .eq("id_cliente", id);
 
       if (error) throw error;
@@ -111,10 +139,14 @@ export default function ClienteDetalhes() {
 
   const handleSaveContato = async () => {
     try {
-      const dataToSave = {
+      if (!id) {
+        throw new Error("Cliente inválido");
+      }
+
+      const dataToSave: Database["public"]["Tables"]["cliente_contato"]["Insert"] = {
         ...contatoFormData,
         id_cliente: id,
-        nome_cliente: cliente?.nome_cliente,
+        nome_cliente: cliente?.nome_cliente ?? null,
       };
 
       if (editContato) {
@@ -147,7 +179,7 @@ export default function ClienteDetalhes() {
     }
   };
 
-  const handleEditContato = (contato: any) => {
+  const handleEditContato = (contato: Contato) => {
     setEditContato(contato);
     setContatoFormData({
       nome_contato: contato.nome_contato || "",

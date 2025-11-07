@@ -48,8 +48,14 @@ export default function ClickupPastas() {
 
   const fetchData = async () => {
     const [pastasRes, clientesRes] = await Promise.all([
-      supabase.from("clientes_pastas_clickup").select("*").order("nome_pasta", { ascending: true }),
-      supabase.from("clientes_infos").select("id_cliente, nome_cliente").order("nome_cliente", { ascending: true }),
+      supabase
+        .from("clientes_pastas_clickup")
+        .select("id, id_cliente, nome_cliente, nome_pasta, id_pasta, nome_espaco, id_espaco, data_criacao")
+        .order("nome_pasta", { ascending: true }),
+      supabase
+        .from("clientes_infos")
+        .select("id_cliente, nome_cliente")
+        .order("nome_cliente", { ascending: true }),
     ]);
 
     if (pastasRes.data) setPastas(pastasRes.data);
