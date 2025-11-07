@@ -110,23 +110,45 @@ export default function ColaboradorDetalhes() {
 
   return (
     <Layout>
-      <div className="space-y-6 max-w-3xl">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/colaboradores")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {colaborador.nome} {colaborador.sobrenome}
-            </h1>
-            <p className="text-muted-foreground">
-              {colaborador.cargo || "Sem cargo definido"}
-            </p>
+      <form onSubmit={handleUpdateColaborador} className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/colaboradores")}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">
+                {colaborador.nome} {colaborador.sobrenome}
+              </h1>
+              <p className="text-muted-foreground">
+                {colaborador.cargo || "Sem cargo definido"}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end lg:items-start">
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
+              {loading ? "Salvando..." : "Salvar Alterações"}
+            </Button>
           </div>
         </div>
 
-        <form onSubmit={handleUpdateColaborador} className="space-y-6">
-          <Card>
+        <div
+          className={`grid gap-6 ${
+            userRole === "admin" && privateData
+              ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+              : ""
+          }`}
+        >
+          <Card className="h-fit">
             <CardHeader>
               <CardTitle>Informações Principais</CardTitle>
             </CardHeader>
@@ -261,7 +283,7 @@ export default function ColaboradorDetalhes() {
           </Card>
 
           {userRole === "admin" && privateData && (
-            <Card className="border-primary/20">
+            <Card className="h-fit border-primary/20">
               <CardHeader>
                 <CardTitle>Dados Sensíveis</CardTitle>
                 <CardDescription>
@@ -304,12 +326,8 @@ export default function ColaboradorDetalhes() {
               </CardContent>
             </Card>
           )}
-
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Salvando..." : "Salvar Alterações"}
-          </Button>
-        </form>
-      </div>
+        </div>
+      </form>
     </Layout>
   );
 }

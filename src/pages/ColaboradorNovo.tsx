@@ -60,7 +60,7 @@ export default function ColaboradorNovo() {
             ...privateData,
           }]);
 
-       if (privateError) {
+        if (privateError) {
           await logger.warning("Erro ao salvar dados privados do colaborador", "COLAB_PRIVATE_ERROR", {
             errorMessage: privateError.message,
             colaboradorId: colaboradorData.id_colaborador,
@@ -90,19 +90,49 @@ export default function ColaboradorNovo() {
 
   return (
     <Layout>
-      <div className="space-y-6 max-w-3xl">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/colaboradores")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Novo Colaborador</h1>
-            <p className="text-muted-foreground">Cadastre um novo membro da equipe</p>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/colaboradores")}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Novo Colaborador</h1>
+              <p className="text-muted-foreground">Cadastre um novo membro da equipe</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end lg:items-start">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate("/colaboradores")}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
+              {loading ? "Salvando..." : "Criar Colaborador"}
+            </Button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Card>
+        <div
+          className={`grid gap-6 ${
+            userRole === "admin"
+              ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+              : ""
+          }`}
+        >
+          <Card className="h-fit">
             <CardHeader>
               <CardTitle>Informações Principais</CardTitle>
             </CardHeader>
@@ -253,7 +283,7 @@ export default function ColaboradorNovo() {
           </Card>
 
           {userRole === "admin" && (
-            <Card className="border-primary/20">
+            <Card className="h-fit border-primary/20">
               <CardHeader>
                 <CardTitle>Dados Sensíveis</CardTitle>
                 <CardDescription>
@@ -296,21 +326,8 @@ export default function ColaboradorNovo() {
               </CardContent>
             </Card>
           )}
-
-          <div className="flex gap-2">
-            <Button type="submit" disabled={loading} className="flex-1">
-              {loading ? "Salvando..." : "Criar Colaborador"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate("/colaboradores")}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </Layout>
   );
 }
