@@ -6,6 +6,7 @@ interface ThemeConfig {
   darkMode: boolean;
   primaryColor: string;
   secondaryColor: string;
+  sidebarColor: string;
   logoUrl: string;
   faviconUrl: string;
 }
@@ -14,6 +15,7 @@ interface ThemeContextType extends ThemeConfig {
   setDarkMode: (value: boolean) => void;
   setPrimaryColor: (color: string) => void;
   setSecondaryColor: (color: string) => void;
+  setSidebarColor: (color: string) => void;
   setLogoUrl: (url: string) => void;
   setFaviconUrl: (url: string) => void;
   saveAsGlobal: () => Promise<void>;
@@ -26,6 +28,7 @@ const defaultConfig: ThemeConfig = {
   darkMode: false,
   primaryColor: "166 100% 21%",
   secondaryColor: "166 98% 34%",
+  sidebarColor: "222 47% 11%",
   logoUrl: "",
   faviconUrl: "",
 };
@@ -33,7 +36,7 @@ const defaultConfig: ThemeConfig = {
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [config, setConfig] = useState<ThemeConfig>(() => {
     const saved = localStorage.getItem("leon-theme-config");
-    return saved ? JSON.parse(saved) : defaultConfig;
+    return saved ? { ...defaultConfig, ...JSON.parse(saved) } : defaultConfig;
   });
 
   useEffect(() => {
@@ -55,6 +58,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     document.documentElement.style.setProperty("--ring", config.primaryColor);
     
     document.documentElement.style.setProperty("--secondary", config.secondaryColor);
+    document.documentElement.style.setProperty("--sidebar-background", config.sidebarColor);
 
     if (config.faviconUrl) {
       const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement("link");
@@ -75,6 +79,10 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   const setSecondaryColor = (color: string) => {
     setConfig((prev) => ({ ...prev, secondaryColor: color }));
+  };
+
+  const setSidebarColor = (color: string) => {
+    setConfig((prev) => ({ ...prev, sidebarColor: color }));
   };
 
   const setLogoUrl = (url: string) => {
@@ -100,6 +108,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
           ...prev,
           primaryColor: (data.value as any).primary || prev.primaryColor,
           secondaryColor: (data.value as any).secondary || prev.secondaryColor,
+          sidebarColor: (data.value as any).sidebar || prev.sidebarColor,
         }));
       }
     } catch (error) {
@@ -116,6 +125,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
           value: {
             primary: config.primaryColor,
             secondary: config.secondaryColor,
+            sidebar: config.sidebarColor,
           },
         });
 
@@ -133,6 +143,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         setDarkMode,
         setPrimaryColor,
         setSecondaryColor,
+        setSidebarColor,
         setLogoUrl,
         setFaviconUrl,
         saveAsGlobal,

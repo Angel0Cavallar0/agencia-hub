@@ -9,18 +9,20 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export default function Configuracoes() {
-  const { 
-    darkMode, 
-    setDarkMode, 
-    primaryColor, 
-    setPrimaryColor, 
+  const {
+    darkMode,
+    setDarkMode,
+    primaryColor,
+    setPrimaryColor,
     secondaryColor,
     setSecondaryColor,
-    logoUrl, 
-    setLogoUrl, 
-    faviconUrl, 
+    sidebarColor,
+    setSidebarColor,
+    logoUrl,
+    setLogoUrl,
+    faviconUrl,
     setFaviconUrl,
-    saveAsGlobal 
+    saveAsGlobal
   } = useTheme();
   const [tempLogoUrl, setTempLogoUrl] = useState(logoUrl);
   const [tempFaviconUrl, setTempFaviconUrl] = useState(faviconUrl);
@@ -156,6 +158,28 @@ export default function Configuracoes() {
                     }
                   }}
                   placeholder="#129990"
+                  className="w-32"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Cor do Menu Lateral</Label>
+              <div className="flex items-center gap-4">
+                <Input
+                  type="color"
+                  value={hslToHex(sidebarColor)}
+                  onChange={(e) => setSidebarColor(hexToHsl(e.target.value))}
+                  className="w-20 h-10"
+                />
+                <Input
+                  value={hslToHex(sidebarColor)}
+                  onChange={(e) => {
+                    if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                      setSidebarColor(hexToHsl(e.target.value));
+                    }
+                  }}
+                  placeholder="#0F1729"
                   className="w-32"
                 />
               </div>
