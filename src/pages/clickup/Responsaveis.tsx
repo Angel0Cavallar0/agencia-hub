@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 
 export default function ClickupResponsaveis() {
   const [clientes, setClientes] = useState<any[]>([]);
@@ -39,13 +40,20 @@ export default function ClickupResponsaveis() {
   }, [selectedCliente]);
 
   const fetchData = async () => {
-    const [clientesRes, colaboradoresRes] = await Promise.all([
-      supabase.from("clientes_infos").select("*"),
-      supabase.from("colaborador").select("*").eq("colab_ativo", true),
-    ]);
+    try {
+      const [clientesRes, colaboradoresRes] = await Promise.all([
+        supabase.from("clientes_infos").select("*").order("nome_cliente", { ascending: true }),
+        supabase.from("colaborador").select("*").eq("colab_ativo", true).order("nome", { ascending: true }),
+      ]);
 
-    if (clientesRes.data) setClientes(clientesRes.data);
-    if (colaboradoresRes.data) setColaboradores(colaboradoresRes.data);
+      if (clientesRes.data) setClientes(clientesRes.data);
+      if (colaboradoresRes.data) setColaboradores(colaboradoresRes.data);
+    } catch (error: any) {
+      await logger.error("Erro ao carregar dados", "RESP_FETCH_ERROR", {
+        errorMessage: error.message,
+      });
+      toast.error("Erro ao carregar dados");
+    }
   };
 
   const fetchResponsaveis = async () => {
@@ -77,15 +85,26 @@ export default function ClickupResponsaveis() {
       return;
     }
 
-    const { error } = await supabase
-      .from("clickup_responsaveis")
-      .upsert({ id_cliente: selectedCliente, ...responsaveis });
+    try {
+      const { error } = await supabase
+        .from("clickup_responsaveis")
+        .upsert({ id_cliente: selectedCliente, ...responsaveis });
 
-    if (error) {
-      toast.error("Erro ao salvar responsáveis");
-      console.error(error);
-    } else {
+      if (error) throw error;
+
+      await logger.success("Responsáveis do cliente salvos", {
+        clienteId: selectedCliente,
+      });
+
       toast.success("Responsáveis salvos com sucesso!");
+    } catch (error: any) {
+      await logger.error("Erro ao salvar responsáveis do cliente", "CLICKUP_RESP_SAVE_ERROR", {
+        errorMessage: error.message,
+        errorStack: error.stack,
+        clienteId: selectedCliente,
+        payload: responsaveis,
+      });
+      toast.error("Erro ao salvar responsáveis");
     }
   };
 

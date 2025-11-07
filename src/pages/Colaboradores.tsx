@@ -25,7 +25,11 @@ export default function Colaboradores() {
   }, []);
 
   const fetchColaboradores = async () => {
-    const { data, error } = await supabase.from("colaborador").select("*");
+    const { data, error } = await supabase
+      .from("colaborador")
+      .select("*")
+      .order("nome", { ascending: true });
+
     if (error) {
       console.error("Erro ao buscar colaboradores:", error);
       return;

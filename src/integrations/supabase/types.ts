@@ -382,6 +382,30 @@ export type Database = {
           },
         ]
       }
+      global_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       informacoes_tasks_clickup: {
         Row: {
           data_atualizacao: string | null
@@ -451,6 +475,39 @@ export type Database = {
             referencedColumns: ["id_pasta"]
           },
         ]
+      }
+      system_logs: {
+        Row: {
+          code: string | null
+          context: Json | null
+          created_at: string
+          id: string
+          level: string
+          message: string
+          timestamp: string
+          user_id: string | null
+        }
+        Insert: {
+          code?: string | null
+          context?: Json | null
+          created_at?: string
+          id?: string
+          level: string
+          message: string
+          timestamp?: string
+          user_id?: string | null
+        }
+        Update: {
+          code?: string | null
+          context?: Json | null
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          timestamp?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

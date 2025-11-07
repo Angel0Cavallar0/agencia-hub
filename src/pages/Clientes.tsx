@@ -26,7 +26,7 @@ export default function Clientes() {
   }, []);
 
   const fetchClientes = async () => {
-    let query = supabase.from("clientes_infos").select("*");
+    let query = supabase.from("clientes_infos").select("*").order("nome_cliente", { ascending: true });
 
     if (filterAtivo !== null) {
       query = query.eq("cliente_ativo", filterAtivo);

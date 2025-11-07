@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { logger } from "@/lib/logger";
 
 export default function ColaboradorNovo() {
   const navigate = useNavigate();
@@ -27,6 +29,8 @@ export default function ColaboradorNovo() {
     colab_ativo: true,
     colab_ferias: false,
     colab_afastado: false,
+    admin: false,
+    supervisor: false,
   });
 
   const [privateData, setPrivateData] = useState({
@@ -56,16 +60,28 @@ export default function ColaboradorNovo() {
             ...privateData,
           }]);
 
-        if (privateError) {
-          console.error("Erro ao salvar dados privados:", privateError);
+       if (privateError) {
+          await logger.warning("Erro ao salvar dados privados do colaborador", "COLAB_PRIVATE_ERROR", {
+            errorMessage: privateError.message,
+            colaboradorId: colaboradorData.id_colaborador,
+          });
           toast.error("Colaborador criado, mas houve erro ao salvar dados privados");
         }
       }
 
+      await logger.success("Colaborador criado com sucesso", {
+        colaboradorId: colaboradorData.id_colaborador,
+        nome: colaboradorData.nome,
+      });
+
       toast.success("Colaborador criado com sucesso!");
       navigate(`/colaboradores/${colaboradorData.id_colaborador}`);
     } catch (error: any) {
-      console.error("Erro ao criar colaborador:", error);
+      await logger.error("Erro ao criar colaborador", "COLAB_CREATE_ERROR", {
+        errorMessage: error.message,
+        errorStack: error.stack,
+        formData,
+      });
       toast.error(error.message || "Erro ao criar colaborador");
     } finally {
       setLoading(false);
@@ -207,6 +223,30 @@ export default function ColaboradorNovo() {
                       setFormData({ ...formData, colab_afastado: checked })
                     }
                   />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-4 pt-4 border-t">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="admin"
+                    checked={formData.admin}
+                    onCheckedChange={(checked) => setFormData({ ...formData, admin: checked as boolean })}
+                  />
+                  <Label htmlFor="admin" className="cursor-pointer">
+                    Administrador
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="supervisor"
+                    checked={formData.supervisor}
+                    onCheckedChange={(checked) => setFormData({ ...formData, supervisor: checked as boolean })}
+                  />
+                  <Label htmlFor="supervisor" className="cursor-pointer">
+                    Supervisor
+                  </Label>
                 </div>
               </div>
             </CardContent>

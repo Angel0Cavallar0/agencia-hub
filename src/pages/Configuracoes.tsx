@@ -9,7 +9,19 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export default function Configuracoes() {
-  const { darkMode, setDarkMode, primaryColor, setPrimaryColor, logoUrl, setLogoUrl, faviconUrl, setFaviconUrl } = useTheme();
+  const { 
+    darkMode, 
+    setDarkMode, 
+    primaryColor, 
+    setPrimaryColor, 
+    secondaryColor,
+    setSecondaryColor,
+    logoUrl, 
+    setLogoUrl, 
+    faviconUrl, 
+    setFaviconUrl,
+    saveAsGlobal 
+  } = useTheme();
   const [tempLogoUrl, setTempLogoUrl] = useState(logoUrl);
   const [tempFaviconUrl, setTempFaviconUrl] = useState(faviconUrl);
 
@@ -101,21 +113,57 @@ export default function Configuracoes() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Cor Primária</CardTitle>
-            <CardDescription>Escolha a cor principal da interface</CardDescription>
+            <CardTitle>Cores do Tema</CardTitle>
+            <CardDescription>Personalize as cores da interface</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <Input
-                type="color"
-                value={hslToHex(primaryColor)}
-                onChange={(e) => setPrimaryColor(hexToHsl(e.target.value))}
-                className="w-20 h-10"
-              />
-              <span className="text-sm text-muted-foreground">
-                Selecione uma cor
-              </span>
+            <div className="space-y-2">
+              <Label>Cor Primária</Label>
+              <div className="flex items-center gap-4">
+                <Input
+                  type="color"
+                  value={hslToHex(primaryColor)}
+                  onChange={(e) => setPrimaryColor(hexToHsl(e.target.value))}
+                  className="w-20 h-10"
+                />
+                <Input
+                  value={hslToHex(primaryColor)}
+                  onChange={(e) => {
+                    if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                      setPrimaryColor(hexToHsl(e.target.value));
+                    }
+                  }}
+                  placeholder="#096B68"
+                  className="w-32"
+                />
+              </div>
             </div>
+            
+            <div className="space-y-2">
+              <Label>Cor Secundária</Label>
+              <div className="flex items-center gap-4">
+                <Input
+                  type="color"
+                  value={hslToHex(secondaryColor)}
+                  onChange={(e) => setSecondaryColor(hexToHsl(e.target.value))}
+                  className="w-20 h-10"
+                />
+                <Input
+                  value={hslToHex(secondaryColor)}
+                  onChange={(e) => {
+                    if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                      setSecondaryColor(hexToHsl(e.target.value));
+                    }
+                  }}
+                  placeholder="#129990"
+                  className="w-32"
+                />
+              </div>
+            </div>
+
+            <Button onClick={saveAsGlobal} variant="outline">
+              Salvar como padrão para todos os usuários
+            </Button>
           </CardContent>
         </Card>
 

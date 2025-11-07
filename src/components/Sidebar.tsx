@@ -1,115 +1,137 @@
-import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Users,
-  UserCog,
-  FolderKanban,
-  Settings,
-  LogOut,
-  CheckSquare,
-  Folder,
-  List,
-  UserCheck,
-} from "lucide-react";
+import { FileText, LayoutDashboard, Users, UserCog, MousePointerClick, LogOut, Settings } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { NavLink } from "./NavLink";
+import { useLocation } from "react-router-dom";
 
-export const Sidebar = () => {
-  const { signOut } = useAuth();
+const menuItems = [
+  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+  { icon: Users, label: "Clientes", path: "/clientes" },
+  { icon: UserCog, label: "Colaboradores", path: "/colaboradores" },
+  {
+    icon: MousePointerClick,
+    label: "ClickUp",
+    path: "/clickup",
+    submenu: [
+      { label: "Responsáveis", path: "/clickup/responsaveis" },
+      { label: "Tarefas", path: "/clickup/tarefas" },
+      { label: "Pastas", path: "/clickup/pastas" },
+      { label: "Listas", path: "/clickup/listas" },
+    ],
+  },
+];
+
+export function Sidebar() {
+  const { signOut, userRole } = useAuth();
   const { logoUrl } = useTheme();
-
-  const menuItems = [
-    { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/clientes", label: "Clientes", icon: Users },
-    { path: "/colaboradores", label: "Colaboradores", icon: UserCog },
-  ];
-
-  const clickupItems = [
-    { path: "/clickup/responsaveis", label: "Responsáveis", icon: UserCheck },
-    { path: "/clickup/tarefas", label: "Tarefas", icon: CheckSquare },
-    { path: "/clickup/pastas", label: "Pastas", icon: Folder },
-    { path: "/clickup/listas", label: "Listas", icon: List },
-  ];
+  const [clickUpOpen, setClickUpOpen] = useState(false);
+  const location = useLocation();
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
+    <aside className="w-64 bg-sidebar-background border-r border-sidebar-border flex flex-col">
+      {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
         {logoUrl ? (
-          <img src={logoUrl} alt="Leon Manager" className="h-10 w-auto" />
+          <img src={logoUrl} alt="Logo" className="h-10 w-auto" />
         ) : (
-          <h1 className="text-xl font-bold text-sidebar-foreground">Leon Manager</h1>
+          <h2 className="text-xl font-bold text-sidebar-foreground">Leon Manager</h2>
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-        {menuItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-primary"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-              )
-            }
-          >
-            <item.icon className="h-5 w-5" />
-            {item.label}
-          </NavLink>
-        ))}
+      {/* Menu Items */}
+      <nav className="flex-1 p-4 space-y-2">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = location.pathname === item.path || 
+            (item.submenu && item.submenu.some(sub => location.pathname === sub.path));
 
-        <div className="pt-4">
-          <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider">
-            <FolderKanban className="h-4 w-4" />
-            ClickUp
-          </div>
-          {clickupItems.map((item) => (
+          if (item.submenu) {
+            return (
+              <div 
+                key={item.path} 
+                className="space-y-1"
+                onMouseEnter={() => setClickUpOpen(true)}
+                onMouseLeave={() => setClickUpOpen(false)}
+              >
+                <div
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-pointer",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="font-medium">{item.label}</span>
+                </div>
+                {clickUpOpen && (
+                  <div className="ml-8 space-y-1">
+                    {item.submenu.map((subItem) => (
+                      <NavLink
+                        key={subItem.path}
+                        to={subItem.path}
+                        end
+                        className="block px-3 py-2 rounded-lg text-sm transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+                      >
+                        {subItem.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          return (
             <NavLink
               key={item.path}
               to={item.path}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 px-3 py-2 pl-9 rounded-lg text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-                )
-              }
+              end
+              className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
             >
-              <item.icon className="h-4 w-4" />
-              {item.label}
+              <Icon className="h-5 w-5" />
+              <span className="font-medium">{item.label}</span>
             </NavLink>
-          ))}
-        </div>
-
-        <NavLink
-          to="/configuracoes"
-          className={({ isActive }) =>
-            cn(
-              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mt-4",
-              isActive
-                ? "bg-sidebar-accent text-sidebar-primary"
-                : "text-sidebar-foreground hover:bg-sidebar-accent/50"
-            )
-          }
-        >
-          <Settings className="h-5 w-5" />
-          Configurações
-        </NavLink>
+          );
+        })}
       </nav>
 
-      <div className="p-4 border-t border-sidebar-border">
+      {/* Footer com Logs, Configurações e Sair */}
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        {userRole === "admin" && (
+          <>
+            <NavLink
+              to="/logs"
+              end
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+              activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+            >
+              <FileText className="h-5 w-5" />
+              <span className="font-medium">Logs</span>
+            </NavLink>
+            <NavLink
+              to="/configuracoes"
+              end
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+              activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+            >
+              <Settings className="h-5 w-5" />
+              <span className="font-medium">Configurações</span>
+            </NavLink>
+          </>
+        )}
         <button
-          onClick={() => signOut()}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors w-full"
+          onClick={signOut}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
         >
           <LogOut className="h-5 w-5" />
-          Sair
+          <span className="font-medium">Sair</span>
         </button>
       </div>
     </aside>
   );
-};
+}
