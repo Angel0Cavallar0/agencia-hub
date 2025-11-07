@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 
 interface ThemeConfig {
   darkMode: boolean;
@@ -118,15 +119,22 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         .maybeSingle();
 
       if (error) throw error;
-      
-      if (data?.value && typeof data.value === 'object' && 'primary' in data.value && 'secondary' in data.value) {
+
+      if (data?.value && typeof data.value === "object" && "primary" in data.value && "secondary" in data.value) {
         setConfig((prev) => ({
           ...prev,
           primaryColor: (data.value as any).primary || prev.primaryColor,
           secondaryColor: (data.value as any).secondary || prev.secondaryColor,
         }));
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      await logger.error("Erro ao carregar configurações globais", "CONFIG_LOAD_ERROR", {
+        errorMessage,
+        errorStack,
+      });
       console.error("Erro ao carregar configurações globais:", error);
     }
   };
@@ -144,9 +152,22 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         });
 
       if (error) throw error;
+      await logger.success("Configurações globais de tema atualizadas", {
+        primaryColor: config.primaryColor,
+        secondaryColor: config.secondaryColor,
+      });
       toast.success("Cores padrão salvas para todos os usuários!");
-    } catch (error: any) {
-      toast.error("Erro ao salvar configurações globais: " + error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      await logger.error("Erro ao salvar configurações globais", "CONFIG_SAVE_ERROR", {
+        errorMessage,
+        errorStack,
+        primaryColor: config.primaryColor,
+        secondaryColor: config.secondaryColor,
+      });
+      toast.error("Erro ao salvar configurações globais: " + errorMessage);
     }
   };
 
