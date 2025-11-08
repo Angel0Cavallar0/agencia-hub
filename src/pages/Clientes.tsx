@@ -26,7 +26,10 @@ export default function Clientes() {
   }, []);
 
   const fetchClientes = async () => {
-    let query = supabase.from("clientes_infos").select("*").order("nome_cliente", { ascending: true });
+    let query = supabase
+      .from("clientes_infos")
+      .select("id_cliente, nome_cliente, cnpj, segmento, cliente_ativo, gestao_trafego, data_contrato")
+      .order("nome_cliente", { ascending: true });
 
     if (filterAtivo !== null) {
       query = query.eq("cliente_ativo", filterAtivo);

@@ -91,14 +91,6 @@ const App = () => (
                 }
               />
               <Route
-                path="/configuracoes"
-                element={
-                  <ProtectedRoute>
-                    <Configuracoes />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/clickup/responsaveis"
                 element={
                   <ProtectedRoute>

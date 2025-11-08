@@ -27,7 +27,9 @@ export default function Colaboradores() {
   const fetchColaboradores = async () => {
     const { data, error } = await supabase
       .from("colaborador")
-      .select("*")
+      .select(
+        "id_colaborador, nome, sobrenome, apelido, cargo, email_corporativo, colab_ferias, colab_afastado, colab_ativo, id_clickup"
+      )
       .order("nome", { ascending: true });
 
     if (error) {

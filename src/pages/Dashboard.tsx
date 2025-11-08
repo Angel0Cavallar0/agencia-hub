@@ -18,24 +18,34 @@ export default function Dashboard() {
 
   const fetchStats = async () => {
     try {
-      const [clientsRes, employeesRes, tasksRes] = await Promise.all([
-        supabase.from("clientes_infos").select("*", { count: "exact" }).eq("cliente_ativo", true),
-        supabase.from("colaborador").select("*", { count: "exact" }).eq("colab_ativo", true),
-        supabase.from("informacoes_tasks_clickup").select("*"),
-      ]);
-
       const today = new Date().toISOString().split("T")[0];
-      const tasks = tasksRes.data || [];
-      const ongoingTasks = tasks.filter((t) => t.status !== "Concluído").length;
-      const overdueTasks = tasks.filter(
-        (t) => t.data_entrega && t.data_entrega < today && t.status !== "Concluído"
-      ).length;
+
+      const [clientsRes, employeesRes, ongoingTasksRes, overdueTasksRes] = await Promise.all([
+        supabase
+          .from("clientes_infos")
+          .select("id_cliente", { count: "exact", head: true })
+          .eq("cliente_ativo", true),
+        supabase
+          .from("colaborador")
+          .select("id_colaborador", { count: "exact", head: true })
+          .eq("colab_ativo", true),
+        supabase
+          .from("informacoes_tasks_clickup")
+          .select("id_subtask", { count: "exact", head: true })
+          .neq("status", "Concluído"),
+        supabase
+          .from("informacoes_tasks_clickup")
+          .select("id_subtask", { count: "exact", head: true })
+          .neq("status", "Concluído")
+          .not("data_entrega", "is", null)
+          .lt("data_entrega", today),
+      ]);
 
       setStats({
         activeClients: clientsRes.count || 0,
         activeEmployees: employeesRes.count || 0,
-        ongoingTasks,
-        overdueTasks,
+        ongoingTasks: ongoingTasksRes.count || 0,
+        overdueTasks: overdueTasksRes.count || 0,
       });
     } catch (error) {
       console.error("Erro ao buscar estatísticas:", error);

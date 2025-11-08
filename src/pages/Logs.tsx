@@ -15,7 +15,6 @@ interface SystemLog {
   level: LogLevel;
   code: string | null;
   message: string;
-  context: any;
   user_id: string | null;
 }
 
@@ -23,6 +22,9 @@ export default function Logs() {
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<LogLevel | "all">("all");
+  const [contextCache, setContextCache] = useState<Record<string, unknown>>({});
+  const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
+  const [loadingContextId, setLoadingContextId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLogs();
@@ -33,7 +35,7 @@ export default function Logs() {
       setLoading(true);
       let query = supabase
         .from("system_logs")
-        .select("*")
+        .select("id, timestamp, level, code, message, user_id")
         .order("timestamp", { ascending: false })
         .limit(200);
 
@@ -45,11 +47,42 @@ export default function Logs() {
 
       if (error) throw error;
       setLogs((data || []) as SystemLog[]);
+      setExpandedLogs({});
+      setContextCache({});
     } catch (error: any) {
       toast.error("Erro ao carregar logs: " + error.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleToggleContext = async (logId: string) => {
+    if (expandedLogs[logId]) {
+      setExpandedLogs((prev) => ({ ...prev, [logId]: false }));
+      return;
+    }
+
+    setExpandedLogs((prev) => ({ ...prev, [logId]: true }));
+
+    if (Object.prototype.hasOwnProperty.call(contextCache, logId)) {
+      return;
+    }
+
+    setLoadingContextId(logId);
+    const { data, error } = await supabase
+      .from("system_logs")
+      .select("context")
+      .eq("id", logId)
+      .single();
+    setLoadingContextId(null);
+
+    if (error) {
+      setExpandedLogs((prev) => ({ ...prev, [logId]: false }));
+      toast.error("Erro ao carregar contexto do log");
+      return;
+    }
+
+    setContextCache((prev) => ({ ...prev, [logId]: data?.context ?? null }));
   };
 
   const getBadgeVariant = (level: LogLevel) => {
@@ -148,15 +181,32 @@ export default function Logs() {
                           )}
                         </div>
                         <p className="font-medium">{log.message}</p>
-                        {log.context && Object.keys(log.context).length > 0 && (
-                          <details className="text-sm text-muted-foreground">
-                            <summary className="cursor-pointer hover:text-foreground">
-                              Ver contexto
-                            </summary>
-                            <pre className="mt-2 p-3 bg-muted rounded text-xs overflow-auto">
-                              {JSON.stringify(log.context, null, 2)}
-                            </pre>
-                          </details>
+                        <button
+                          onClick={() => handleToggleContext(log.id)}
+                          className="text-sm text-primary hover:underline"
+                          type="button"
+                          disabled={loadingContextId === log.id}
+                        >
+                          {expandedLogs[log.id]
+                            ? "Ocultar contexto"
+                            : loadingContextId === log.id
+                            ? "Carregando contexto..."
+                            : "Ver contexto"}
+                        </button>
+                        {expandedLogs[log.id] && (
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            {loadingContextId === log.id ? (
+                              <p>Carregando contexto...</p>
+                            ) : Object.prototype.hasOwnProperty.call(contextCache, log.id) ? (
+                              contextCache[log.id] ? (
+                                <pre className="mt-2 p-3 bg-muted rounded text-xs overflow-auto text-left">
+                                  {JSON.stringify(contextCache[log.id], null, 2)}
+                                </pre>
+                              ) : (
+                                <p>Nenhum contexto adicional para este log.</p>
+                              )
+                            ) : null}
+                          </div>
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">

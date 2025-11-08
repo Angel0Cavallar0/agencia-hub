@@ -46,8 +46,14 @@ export default function ClickupListas() {
 
   const fetchData = async () => {
     const [listasRes, pastasRes] = await Promise.all([
-      supabase.from("clientes_listas_clickup").select("*").order("nome_lista", { ascending: true }),
-      supabase.from("clientes_pastas_clickup").select("id_pasta, nome_pasta").order("nome_pasta", { ascending: true }),
+      supabase
+        .from("clientes_listas_clickup")
+        .select("id, id_lista, id_pasta, nome_lista, nome_pasta, data_criacao")
+        .order("nome_lista", { ascending: true }),
+      supabase
+        .from("clientes_pastas_clickup")
+        .select("id_pasta, nome_pasta, nome_cliente")
+        .order("nome_pasta", { ascending: true }),
     ]);
 
     if (listasRes.data) setListas(listasRes.data);
