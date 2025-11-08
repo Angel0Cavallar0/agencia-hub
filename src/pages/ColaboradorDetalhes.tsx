@@ -1,12 +1,27 @@
-import { useState, useEffect } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
@@ -38,11 +53,120 @@ export default function ColaboradorDetalhes() {
     | "admin"
     | "supervisor"
   >;
-  type PrivateData = Pick<ColaboradorPrivate, "email_pessoal" | "whatsapp" | "data_aniversario">;
+  type PrivateSupabaseData =
+    Pick<ColaboradorPrivate, "email_pessoal" | "whatsapp" | "data_aniversario"> &
+    Partial<ColaboradorPrivate> & {
+      contato_emergencia?: string | Record<string, string> | null;
+    };
+
+  type PrivateData = {
+    cpf: string;
+    rg: string;
+    data_nascimento: string;
+    endereco_residencial: string;
+    telefone_pessoal: string;
+    email_pessoal: string;
+    contato_emergencia_nome: string;
+    contato_emergencia_telefone: string;
+  };
 
   const [colaborador, setColaborador] = useState<EditableColaborador | null>(null);
   const [privateData, setPrivateData] = useState<PrivateData | null>(null);
+  type StatusValue = "ativo" | "ferias" | "afastado" | "desligado";
+
   const [role, setRole] = useState<"user" | "supervisor" | "admin">("user");
+  const [status, setStatus] = useState<StatusValue>("ativo");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [sensitiveVisible, setSensitiveVisible] = useState(true);
+  const [availablePrivateFields, setAvailablePrivateFields] = useState<string[]>([]);
+  const [isDesligadoDialogOpen, setIsDesligadoDialogOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<StatusValue | null>(null);
+
+  const statusOptions = [
+    {
+      value: "ativo" as const,
+      label: "Ativo",
+      description: "Colaborador trabalhando normalmente.",
+    },
+    {
+      value: "ferias" as const,
+      label: "Em Férias",
+      description: "Colaborador em período de férias.",
+    },
+    {
+      value: "afastado" as const,
+      label: "Afastado",
+      description: "Colaborador afastado temporariamente.",
+    },
+    {
+      value: "desligado" as const,
+      label: "Desligado",
+      description:
+        "Após 10 minutos todas as contas serão desativadas. Reative em até 10 minutos para cancelar.",
+    },
+  ];
+
+  const roleOptions = [
+    {
+      value: "admin" as const,
+      label: "Administrador",
+      description: "Acesso completo a todas as seções e configurações.",
+    },
+    {
+      value: "supervisor" as const,
+      label: "Supervisor",
+      description: "Pode acompanhar equipes e clientes designados.",
+    },
+    {
+      value: "user" as const,
+      label: "Usuário",
+      description: "Acesso restrito às atividades do próprio colaborador.",
+    },
+  ];
+
+  const cardSurfaceClasses =
+    "rounded-xl border border-black/30 bg-white/90 shadow-md transition-colors dark:border-white/20 dark:bg-slate-900/70";
+  const inputSurfaceClasses =
+    "rounded-lg border border-black/10 bg-muted dark:border-white/15 dark:bg-slate-900/60";
+  const selectTriggerClasses =
+    "min-w-[260px] sm:min-w-[300px] h-12 rounded-lg border border-black/20 bg-white/80 text-left dark:border-white/20 dark:bg-slate-900/60";
+
+  const applyStatusChange = (selectedStatus: StatusValue) => {
+    setStatus(selectedStatus);
+    setColaborador((previous) => {
+      if (!previous) return previous;
+      return {
+        ...previous,
+        colab_ativo: selectedStatus === "ativo",
+        colab_ferias: selectedStatus === "ferias",
+        colab_afastado: selectedStatus === "afastado",
+      };
+    });
+  };
+
+  const handleStatusSelection = (value: StatusValue) => {
+    if (value === "desligado") {
+      setPendingStatus(value);
+      setIsDesligadoDialogOpen(true);
+      return;
+    }
+
+    setPendingStatus(null);
+    applyStatusChange(value);
+  };
+
+  const closeDesligadoDialog = () => {
+    setIsDesligadoDialogOpen(false);
+    setPendingStatus(null);
+  };
+
+  const confirmDesligadoStatus = () => {
+    if (pendingStatus === "desligado") {
+      applyStatusChange("desligado");
+    }
+    closeDesligadoDialog();
+  };
 
   useEffect(() => {
     if (id) {
@@ -52,6 +176,18 @@ export default function ColaboradorDetalhes() {
       }
     }
   }, [id, userRole]);
+
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreview(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(photoFile);
+    setPhotoPreview(previewUrl);
+
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [photoFile]);
 
   const fetchColaborador = async () => {
     const { data, error } = await supabase
@@ -72,13 +208,22 @@ export default function ColaboradorDetalhes() {
       const colaboradorData = data as EditableColaborador;
       setColaborador(colaboradorData);
       setRole(colaboradorData.admin ? "admin" : colaboradorData.supervisor ? "supervisor" : "user");
+      setStatus(
+        colaboradorData.colab_ferias
+          ? "ferias"
+          : colaboradorData.colab_afastado
+          ? "afastado"
+          : colaboradorData.colab_ativo
+          ? "ativo"
+          : "desligado"
+      );
     }
   };
 
   const fetchPrivateData = async () => {
     const { data, error } = await supabase
       .from("colaborador_private")
-      .select("email_pessoal, whatsapp, data_aniversario")
+      .select("*")
       .eq("id_colaborador", id)
       .maybeSingle();
 
@@ -87,13 +232,43 @@ export default function ColaboradorDetalhes() {
       return;
     }
 
-    setPrivateData(
-      data || {
-        email_pessoal: "",
-        whatsapp: "",
-        data_aniversario: "",
+    const supabaseData = (data || {}) as PrivateSupabaseData;
+    setAvailablePrivateFields(Object.keys(supabaseData || {}));
+
+    const emergencyValue = supabaseData.contato_emergencia;
+    let emergencyName = "";
+    let emergencyPhone = "";
+
+    if (typeof emergencyValue === "string" && emergencyValue) {
+      try {
+        const parsed = JSON.parse(emergencyValue) as
+          | { nome?: string; telefone?: string }
+          | undefined;
+        if (parsed) {
+          emergencyName = parsed.nome?.toString() || "";
+          emergencyPhone = parsed.telefone?.toString() || "";
+        }
+      } catch (error) {
+        const [namePart, phonePart] = emergencyValue.split("|").map((part) => part.trim());
+        emergencyName = namePart || emergencyValue;
+        emergencyPhone = phonePart || "";
       }
-    );
+    } else if (emergencyValue && typeof emergencyValue === "object") {
+      const parsed = emergencyValue as { nome?: string; telefone?: string };
+      emergencyName = parsed.nome?.toString() || "";
+      emergencyPhone = parsed.telefone?.toString() || "";
+    }
+
+    setPrivateData({
+      cpf: (supabaseData.cpf as string) || "",
+      rg: (supabaseData.rg as string) || "",
+      data_nascimento: supabaseData.data_aniversario || "",
+      endereco_residencial: (supabaseData.endereco as string) || "",
+      telefone_pessoal: supabaseData.whatsapp || "",
+      email_pessoal: supabaseData.email_pessoal || "",
+      contato_emergencia_nome: emergencyName,
+      contato_emergencia_telefone: emergencyPhone,
+    });
   };
 
   const handleUpdateColaborador = async (e: React.FormEvent) => {
@@ -136,13 +311,41 @@ export default function ColaboradorDetalhes() {
       if (colaboradorError) throw colaboradorError;
 
       if (userRole === "admin" && privateData) {
+        const emergencyPayload =
+          privateData.contato_emergencia_nome || privateData.contato_emergencia_telefone
+            ? JSON.stringify({
+                nome: privateData.contato_emergencia_nome,
+                telefone: privateData.contato_emergencia_telefone,
+              })
+            : null;
+
+        const privatePayload: Record<string, string | null> & {
+          contato_emergencia?: string | null;
+        } = {
+          id_colaborador: id,
+          email_pessoal: privateData.email_pessoal || null,
+          whatsapp: privateData.telefone_pessoal || null,
+          data_aniversario: privateData.data_nascimento || null,
+        };
+
+        if (availablePrivateFields.includes("contato_emergencia")) {
+          privatePayload.contato_emergencia = emergencyPayload;
+        }
+
+        if (availablePrivateFields.includes("cpf")) {
+          privatePayload.cpf = privateData.cpf || null;
+        }
+        if (availablePrivateFields.includes("rg")) {
+          privatePayload.rg = privateData.rg || null;
+        }
+        if (availablePrivateFields.includes("endereco")) {
+          privatePayload.endereco = privateData.endereco_residencial || null;
+        }
+
         const { error: privateError } = await supabase
           .from("colaborador_private")
-          .upsert({
-            id_colaborador: id,
-            email_pessoal: privateData.email_pessoal ?? null,
-            whatsapp: privateData.whatsapp ?? null,
-            data_aniversario: privateData.data_aniversario ?? null,
+          .upsert(privatePayload as Database["public"]["Tables"]["colaborador_private"]["Insert"] & {
+            contato_emergencia?: string | null;
           });
 
         if (privateError) {
@@ -160,6 +363,11 @@ export default function ColaboradorDetalhes() {
     }
   };
 
+  const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setPhotoFile(file);
+  };
+
   if (!colaborador) {
     return (
       <Layout>
@@ -172,123 +380,139 @@ export default function ColaboradorDetalhes() {
 
   return (
     <Layout>
-      <div className="space-y-6 w-full max-w-6xl mx-auto">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/colaboradores")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {colaborador.nome} {colaborador.sobrenome}
-            </h1>
-            <p className="text-muted-foreground">
-              {colaborador.cargo || "Sem cargo definido"}
-            </p>
-          </div>
-        </div>
-
+      <div className="w-full max-w-6xl space-y-6">
         <form onSubmit={handleUpdateColaborador} className="space-y-6">
-          <div className="grid gap-6 xl:grid-cols-[2fr,1fr]">
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Informações Principais</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="nome">Nome *</Label>
-                      <Input
-                        id="nome"
-                        required
-                        value={colaborador.nome || ""}
-                        onChange={(e) =>
-                          setColaborador({ ...colaborador, nome: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="sobrenome">Sobrenome</Label>
-                      <Input
-                        id="sobrenome"
-                        value={colaborador.sobrenome || ""}
-                        onChange={(e) =>
-                          setColaborador({
-                            ...colaborador,
-                            sobrenome: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/colaboradores")}>
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">
+                  {colaborador.nome} {colaborador.sobrenome}
+                </h1>
+                <p className="text-muted-foreground">
+                  {colaborador.cargo || "Sem cargo definido"}
+                </p>
+              </div>
+            </div>
+            <Button type="submit" disabled={loading} className="min-w-[180px]">
+              {loading ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="apelido">Apelido</Label>
-                      <Input
-                        id="apelido"
-                        value={colaborador.apelido || ""}
-                        onChange={(e) =>
-                          setColaborador({ ...colaborador, apelido: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cargo">Cargo</Label>
-                      <Input
-                        id="cargo"
-                        value={colaborador.cargo || ""}
-                        onChange={(e) =>
-                          setColaborador({ ...colaborador, cargo: e.target.value })
-                        }
-                      />
-                    </div>
+          <div className="grid gap-6 xl:grid-cols-2">
+            <Card className={`order-1 ${cardSurfaceClasses}`}>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl font-semibold text-foreground">
+                  Informações Principais
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-6 lg:flex-row">
+                <div className="flex w-full max-w-[180px] flex-col items-center gap-4">
+                  <div
+                    className="flex h-36 w-36 items-center justify-center rounded-full bg-emerald-800 text-lg font-semibold uppercase tracking-wide text-white"
+                    style={
+                      photoPreview
+                        ? {
+                            backgroundImage: `url(${photoPreview})`,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                          }
+                        : undefined
+                    }
+                  >
+                    {!photoPreview && "foto"}
                   </div>
-
+                  <div>
+                    <input
+                      id="foto_colaborador"
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() =>
+                        document.getElementById("foto_colaborador")?.click()
+                      }
+                      className="h-8 rounded-full bg-emerald-800 px-4 text-xs font-semibold tracking-wide text-white hover:bg-emerald-900"
+                    >
+                      ALTERAR FOTO
+                    </Button>
+                    {photoFile && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {photoFile.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid flex-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="email_corporativo">Email Corporativo</Label>
+                    <Label htmlFor="nome">Nome *</Label>
                     <Input
-                      id="email_corporativo"
-                      type="email"
-                      value={colaborador.email_corporativo || ""}
+                      id="nome"
+                      required
+                      value={colaborador.nome || ""}
+                      className={inputSurfaceClasses}
+                      onChange={(e) =>
+                        setColaborador({ ...colaborador, nome: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sobrenome">Sobrenome</Label>
+                    <Input
+                      id="sobrenome"
+                      value={colaborador.sobrenome || ""}
+                      className={inputSurfaceClasses}
                       onChange={(e) =>
                         setColaborador({
                           ...colaborador,
-                          email_corporativo: e.target.value,
+                          sobrenome: e.target.value,
                         })
                       }
                     />
                   </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="id_clickup">ID ClickUp</Label>
-                      <Input
-                        id="id_clickup"
-                        value={colaborador.id_clickup || ""}
-                        onChange={(e) =>
-                          setColaborador({ ...colaborador, id_clickup: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="id_slack">ID Slack</Label>
-                      <Input
-                        id="id_slack"
-                        value={colaborador.id_slack || ""}
-                        onChange={(e) =>
-                          setColaborador({ ...colaborador, id_slack: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-
                   <div className="space-y-2">
-                    <Label htmlFor="data_admissao">Data de Admissão</Label>
+                    <Label htmlFor="apelido">Apelido</Label>
+                    <Input
+                      id="apelido"
+                      value={colaborador.apelido || ""}
+                      className={inputSurfaceClasses}
+                      onChange={(e) =>
+                        setColaborador({ ...colaborador, apelido: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="id_colaborador">ID Colaborador</Label>
+                    <Input
+                      id="id_colaborador"
+                      value={colaborador.id_colaborador || ""}
+                      className={inputSurfaceClasses}
+                      readOnly
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cargo">Cargo</Label>
+                    <Input
+                      id="cargo"
+                      value={colaborador.cargo || ""}
+                      className={inputSurfaceClasses}
+                      onChange={(e) =>
+                        setColaborador({ ...colaborador, cargo: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="data_admissao">Data de Contratação</Label>
                     <Input
                       id="data_admissao"
                       type="date"
                       value={colaborador.data_admissao || ""}
+                      className={inputSurfaceClasses}
                       onChange={(e) =>
                         setColaborador({
                           ...colaborador,
@@ -297,164 +521,304 @@ export default function ColaboradorDetalhes() {
                       }
                     />
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="email_corporativo">E-mail Corporativo</Label>
+                    <Input
+                      id="email_corporativo"
+                      type="email"
+                      value={colaborador.email_corporativo || ""}
+                      className={`md:max-w-xl ${inputSurfaceClasses}`}
+                      onChange={(e) =>
+                        setColaborador({
+                          ...colaborador,
+                          email_corporativo: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="id_clickup">ID ClickUp</Label>
+                    <Input
+                      id="id_clickup"
+                      value={colaborador.id_clickup || ""}
+                      className={inputSurfaceClasses}
+                      onChange={(e) =>
+                        setColaborador({ ...colaborador, id_clickup: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="id_slack">ID Slack</Label>
+                    <Input
+                      id="id_slack"
+                      value={colaborador.id_slack || ""}
+                      className={inputSurfaceClasses}
+                      onChange={(e) =>
+                        setColaborador({ ...colaborador, id_slack: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Status do Colaborador</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="colab_ativo">Colaborador Ativo</Label>
-                    <Switch
-                      id="colab_ativo"
-                      checked={colaborador.colab_ativo}
-                      onCheckedChange={(checked) =>
-                        setColaborador({ ...colaborador, colab_ativo: checked })
-                      }
-                    />
+            {userRole === "admin" && privateData ? (
+              <Card className={`order-2 ${cardSurfaceClasses}`}>
+                <CardHeader className="flex items-start justify-between gap-4 pb-4">
+                  <div>
+                    <CardTitle className="text-xl font-semibold text-foreground">
+                      Dados Sensíveis
+                    </CardTitle>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="colab_ferias">Em Férias</Label>
-                    <Switch
-                      id="colab_ferias"
-                      checked={colaborador.colab_ferias}
-                      onCheckedChange={(checked) =>
-                        setColaborador({ ...colaborador, colab_ferias: checked })
-                      }
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="colab_afastado">Afastado</Label>
-                    <Switch
-                      id="colab_afastado"
-                      checked={colaborador.colab_afastado}
-                      onCheckedChange={(checked) =>
-                        setColaborador({ ...colaborador, colab_afastado: checked })
-                      }
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Acesso e Permissões</CardTitle>
-                  <CardDescription>
-                    Defina o nível de acesso do colaborador
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <RadioGroup
-                    value={role}
-                    onValueChange={(value) => {
-                      setRole(value as "user" | "supervisor" | "admin");
-                      setColaborador({
-                        ...colaborador,
-                        admin: value === "admin",
-                        supervisor: value === "supervisor",
-                      });
-                    }}
+                  <Button
+                    type="button"
+                    onClick={() => setSensitiveVisible((prev) => !prev)}
+                    className={`h-8 rounded-full px-4 text-xs font-semibold tracking-wide ${
+                      sensitiveVisible
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    }`}
                   >
-                    <div className="flex items-center space-x-3 rounded-lg border p-3">
-                      <RadioGroupItem value="admin" id="admin" />
-                      <div>
-                        <Label htmlFor="admin" className="cursor-pointer">
-                          Administrador
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Acesso completo a todas as seções e configurações.
-                        </p>
+                    {sensitiveVisible ? "visível" : "oculto"}
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {sensitiveVisible ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="cpf">CPF</Label>
+                        <Input
+                          id="cpf"
+                          value={privateData.cpf}
+                          className={inputSurfaceClasses}
+                          onChange={(e) =>
+                            setPrivateData({
+                              ...privateData,
+                              cpf: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="rg">RG</Label>
+                        <Input
+                          id="rg"
+                          value={privateData.rg}
+                          className={inputSurfaceClasses}
+                          onChange={(e) =>
+                            setPrivateData({
+                              ...privateData,
+                              rg: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="data_nascimento">Data de Nascimento</Label>
+                        <Input
+                          id="data_nascimento"
+                          type="date"
+                          value={privateData.data_nascimento}
+                          className={inputSurfaceClasses}
+                          onChange={(e) =>
+                            setPrivateData({
+                              ...privateData,
+                              data_nascimento: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="endereco_residencial">Endereço Residencial</Label>
+                        <Input
+                          id="endereco_residencial"
+                          value={privateData.endereco_residencial}
+                          className={inputSurfaceClasses}
+                          onChange={(e) =>
+                            setPrivateData({
+                              ...privateData,
+                              endereco_residencial: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="telefone_pessoal">Telefone Pessoal</Label>
+                        <Input
+                          id="telefone_pessoal"
+                          value={privateData.telefone_pessoal}
+                          className={inputSurfaceClasses}
+                          onChange={(e) =>
+                            setPrivateData({
+                              ...privateData,
+                              telefone_pessoal: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email_pessoal">E-mail Pessoal</Label>
+                        <Input
+                          id="email_pessoal"
+                          type="email"
+                          value={privateData.email_pessoal}
+                          className={inputSurfaceClasses}
+                          onChange={(e) =>
+                            setPrivateData({
+                              ...privateData,
+                              email_pessoal: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="grid gap-4 md:col-span-2 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="contato_emergencia_nome">Nome do Contato de Emergência</Label>
+                          <Input
+                            id="contato_emergencia_nome"
+                            value={privateData.contato_emergencia_nome}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                contato_emergencia_nome: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="contato_emergencia_telefone">Telefone do Contato de Emergência</Label>
+                          <Input
+                            id="contato_emergencia_telefone"
+                            value={privateData.contato_emergencia_telefone}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                contato_emergencia_telefone: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3 rounded-lg border p-3">
-                      <RadioGroupItem value="supervisor" id="supervisor" />
-                      <div>
-                        <Label htmlFor="supervisor" className="cursor-pointer">
-                          Supervisor
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Pode acompanhar equipes e clientes designados.
-                        </p>
-                      </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-white/70 p-6 text-center text-sm text-muted-foreground dark:bg-slate-900/60">
+                      Os dados sensíveis estão ocultos. Clique em "visível" para exibir novamente.
                     </div>
-                    <div className="flex items-center space-x-3 rounded-lg border p-3">
-                      <RadioGroupItem value="user" id="user" />
-                      <div>
-                        <Label htmlFor="user" className="cursor-pointer">
-                          Usuário
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Acesso restrito às atividades do próprio colaborador.
-                        </p>
-                      </div>
-                    </div>
-                  </RadioGroup>
+                  )}
                 </CardContent>
               </Card>
+            ) : (
+              <div className="order-2 hidden xl:block" />
+            )}
 
-              {userRole === "admin" && privateData && (
-                <Card className="border-primary/20">
-                  <CardHeader>
-                    <CardTitle>Dados Sensíveis</CardTitle>
-                    <CardDescription>
-                      Visível apenas para administradores
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email_pessoal">Email Pessoal</Label>
-                      <Input
-                        id="email_pessoal"
-                        type="email"
-                        value={privateData.email_pessoal || ""}
-                        onChange={(e) =>
-                          setPrivateData({
-                            ...privateData,
-                            email_pessoal: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="whatsapp">WhatsApp</Label>
-                      <Input
-                        id="whatsapp"
-                        value={privateData.whatsapp || ""}
-                        onChange={(e) =>
-                          setPrivateData({
-                            ...privateData,
-                            whatsapp: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="data_aniversario">Data de Aniversário</Label>
-                      <Input
-                        id="data_aniversario"
-                        type="date"
-                        value={privateData.data_aniversario || ""}
-                        onChange={(e) =>
-                          setPrivateData({
-                            ...privateData,
-                            data_aniversario: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            <Card className={`order-3 ${cardSurfaceClasses}`}>
+              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:space-y-0">
+                <div className="flex flex-col">
+                  <CardTitle className="text-lg">Status do Colaborador</CardTitle>
+                  <CardDescription>Controle o status atual do colaborador.</CardDescription>
+                </div>
+                <Select
+                  value={status}
+                  onValueChange={(value) =>
+                    handleStatusSelection(value as StatusValue)
+                  }
+                >
+                  <SelectTrigger
+                    aria-label="Selecione o status do colaborador"
+                    className={selectTriggerClasses}
+                  >
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {option.description}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardHeader>
+            </Card>
+            <AlertDialog
+              open={isDesligadoDialogOpen}
+              onOpenChange={(open) => {
+                if (!open) {
+                  closeDesligadoDialog();
+                } else {
+                  setIsDesligadoDialogOpen(true);
+                }
+              }}
+            >
+              <AlertDialogContent className={cardSurfaceClasses}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar desligamento</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza de que deseja marcar este colaborador como desligado?
+                    Após 10 minutos todas as contas dele serão desativadas
+                    permanentemente. Para cancelar a ação, altere o status de volta
+                    para ativo dentro desse período.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={closeDesligadoDialog}>
+                    Cancelar
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={confirmDesligadoStatus}
+                  >
+                    Confirmar desligamento
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <Card className={`order-4 ${cardSurfaceClasses}`}>
+              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:space-y-0">
+                <div className="flex flex-col">
+                  <CardTitle className="text-lg">Acesso e Permissões</CardTitle>
+                  <CardDescription>Defina os níveis de acesso disponíveis.</CardDescription>
+                </div>
+                <Select
+                  value={role}
+                  onValueChange={(value) => {
+                    setRole(value as "user" | "supervisor" | "admin");
+                    setColaborador({
+                      ...colaborador,
+                      admin: value === "admin",
+                      supervisor: value === "supervisor",
+                    });
+                  }}
+                >
+                  <SelectTrigger
+                    aria-label="Selecione o nível de acesso"
+                    className={selectTriggerClasses}
+                  >
+                    <SelectValue placeholder="Selecione um nível de acesso" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {option.description}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardHeader>
+            </Card>
           </div>
-
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Salvando..." : "Salvar Alterações"}
-          </Button>
         </form>
       </div>
     </Layout>
