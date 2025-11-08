@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { logger } from "@/lib/logger";
+import { maskIdentifier } from "@/lib/urlMask";
 
 export default function ColaboradorNovo() {
   const navigate = useNavigate();
@@ -29,6 +30,7 @@ export default function ColaboradorNovo() {
     colab_ativo: true,
     colab_ferias: false,
     colab_afastado: false,
+    colab_desligado: false,
     role: "user" as "user" | "supervisor" | "admin",
   });
 
@@ -82,7 +84,7 @@ export default function ColaboradorNovo() {
       });
 
       toast.success("Colaborador criado com sucesso!");
-      navigate(`/colaboradores/${colaboradorData.id_colaborador}`);
+      navigate(`/colaboradores/${maskIdentifier(colaboradorData.id_colaborador)}`);
     } catch (error: any) {
       await logger.error("Erro ao criar colaborador", "COLAB_CREATE_ERROR", {
         errorMessage: error.message,

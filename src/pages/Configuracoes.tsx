@@ -9,24 +9,28 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export default function Configuracoes() {
-  const { 
-    darkMode, 
-    setDarkMode, 
-    primaryColor, 
-    setPrimaryColor, 
+  const {
+    darkMode,
+    setDarkMode,
+    primaryColor,
+    setPrimaryColor,
     secondaryColor,
     setSecondaryColor,
-    logoUrl, 
-    setLogoUrl, 
-    faviconUrl, 
+    logoUrl,
+    setLogoUrl,
+    loginLogoUrl,
+    setLoginLogoUrl,
+    faviconUrl,
     setFaviconUrl,
-    saveAsGlobal 
+    saveAsGlobal
   } = useTheme();
   const [tempLogoUrl, setTempLogoUrl] = useState(logoUrl);
+  const [tempLoginLogoUrl, setTempLoginLogoUrl] = useState(loginLogoUrl);
   const [tempFaviconUrl, setTempFaviconUrl] = useState(faviconUrl);
 
   const handleSaveUrls = () => {
     setLogoUrl(tempLogoUrl);
+    setLoginLogoUrl(tempLoginLogoUrl);
     setFaviconUrl(tempFaviconUrl);
     toast.success("Configurações salvas com sucesso!");
   };
@@ -96,6 +100,15 @@ export default function Configuracoes() {
                 placeholder="https://exemplo.com/logo.png"
                 value={tempLogoUrl}
                 onChange={(e) => setTempLogoUrl(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="loginLogo">URL da Logo da Página de Login</Label>
+              <Input
+                id="loginLogo"
+                placeholder="https://exemplo.com/login-logo.png"
+                value={tempLoginLogoUrl}
+                onChange={(e) => setTempLoginLogoUrl(e.target.value)}
               />
             </div>
             <div className="space-y-2">

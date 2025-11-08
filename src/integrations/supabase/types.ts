@@ -289,6 +289,7 @@ export type Database = {
           colab_afastado: boolean | null
           colab_ativo: boolean | null
           colab_ferias: boolean | null
+          colab_desligado: boolean | null
           data_admissao: string | null
           data_aniversario: string | null
           date_created: string | null
@@ -310,6 +311,7 @@ export type Database = {
           colab_afastado?: boolean | null
           colab_ativo?: boolean | null
           colab_ferias?: boolean | null
+          colab_desligado?: boolean | null
           data_admissao?: string | null
           data_aniversario?: string | null
           date_created?: string | null
@@ -331,6 +333,7 @@ export type Database = {
           colab_afastado?: boolean | null
           colab_ativo?: boolean | null
           colab_ferias?: boolean | null
+          colab_desligado?: boolean | null
           data_admissao?: string | null
           data_aniversario?: string | null
           date_created?: string | null

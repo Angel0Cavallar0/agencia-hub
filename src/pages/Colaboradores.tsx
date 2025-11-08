@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import { maskIdentifier } from "@/lib/urlMask";
 
 export default function Colaboradores() {
   const [colaboradores, setColaboradores] = useState<any[]>([]);
@@ -28,7 +29,7 @@ export default function Colaboradores() {
     const { data, error } = await supabase
       .from("colaborador")
       .select(
-        "id_colaborador, nome, sobrenome, apelido, cargo, email_corporativo, colab_ferias, colab_afastado, colab_ativo, id_clickup"
+        "id_colaborador, nome, sobrenome, apelido, cargo, email_corporativo, colab_ferias, colab_afastado, colab_ativo, colab_desligado, id_clickup"
       )
       .order("nome", { ascending: true });
 
@@ -85,7 +86,7 @@ export default function Colaboradores() {
                 <TableRow
                   key={colab.id_colaborador}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/colaboradores/${colab.id_colaborador}`)}
+                  onClick={() => navigate(`/colaboradores/${maskIdentifier(colab.id_colaborador)}`)}
                 >
                   <TableCell className="font-medium">
                     {colab.nome} {colab.sobrenome}
@@ -94,7 +95,9 @@ export default function Colaboradores() {
                   <TableCell>{colab.cargo}</TableCell>
                   <TableCell>{colab.email_corporativo}</TableCell>
                   <TableCell>
-                    {colab.colab_ferias ? (
+                    {colab.colab_desligado ? (
+                      <Badge variant="destructive">Desligado</Badge>
+                    ) : colab.colab_ferias ? (
                       <Badge variant="secondary">Férias</Badge>
                     ) : colab.colab_afastado ? (
                       <Badge variant="destructive">Afastado</Badge>

@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 type LogLevel = "info" | "warning" | "error" | "success";
+type LogFilter = LogLevel | "all" | "security";
 
 interface SystemLog {
   id: string;
@@ -21,7 +22,7 @@ interface SystemLog {
 export default function Logs() {
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<LogLevel | "all">("all");
+  const [filter, setFilter] = useState<LogFilter>("all");
   const [contextCache, setContextCache] = useState<Record<string, unknown>>({});
   const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
   const [loadingContextId, setLoadingContextId] = useState<string | null>(null);
@@ -39,7 +40,9 @@ export default function Logs() {
         .order("timestamp", { ascending: false })
         .limit(200);
 
-      if (filter !== "all") {
+      if (filter === "security") {
+        query = query.ilike("code", "SECURITY_%");
+      } else if (filter !== "all") {
         query = query.eq("level", filter);
       }
 
@@ -148,6 +151,14 @@ export default function Logs() {
             }`}
           >
             Info
+          </button>
+          <button
+            onClick={() => setFilter("security")}
+            className={`px-4 py-2 rounded-md ${
+              filter === "security" ? "bg-primary text-primary-foreground" : "bg-muted"
+            }`}
+          >
+            Segurança
           </button>
         </div>
 

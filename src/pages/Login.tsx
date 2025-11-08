@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
+  const { loginLogoUrl } = useTheme();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,9 +35,13 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-2xl font-bold text-primary-foreground">L</span>
-            </div>
+            {loginLogoUrl ? (
+              <img src={loginLogoUrl} alt="Logo da aplicação" className="h-16 w-auto" />
+            ) : (
+              <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-2xl font-bold text-primary-foreground">L</span>
+              </div>
+            )}
           </div>
           <CardTitle className="text-2xl text-center">Bem-vindo</CardTitle>
           <CardDescription className="text-center">

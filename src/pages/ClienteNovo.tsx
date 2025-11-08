@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
+import { maskIdentifier } from "@/lib/urlMask";
 
 export default function ClienteNovo() {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export default function ClienteNovo() {
       if (error) throw error;
 
       toast.success("Cliente criado com sucesso!");
-      navigate(`/clientes/${data.id_cliente}`);
+      navigate(`/clientes/${maskIdentifier(data.id_cliente)}`);
     } catch (error: any) {
       console.error("Erro ao criar cliente:", error);
       toast.error(error.message || "Erro ao criar cliente");

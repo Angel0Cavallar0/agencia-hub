@@ -6,6 +6,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -17,6 +35,8 @@ import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Database } from "@/integrations/supabase/types";
+import { logger } from "@/lib/logger";
+import { unmaskIdentifier } from "@/lib/urlMask";
 
 type Colaborador = Database["public"]["Tables"]["colaborador"]["Row"];
 type ColaboradorPrivate = Database["public"]["Tables"]["colaborador_private"]["Row"];
@@ -24,7 +44,8 @@ type ColaboradorPrivate = Database["public"]["Tables"]["colaborador_private"]["R
 export default function ColaboradorDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
+  const colaboradorId = id ? unmaskIdentifier(id) : "";
   const [loading, setLoading] = useState(false);
   type EditableColaborador = Pick<
     Colaborador,
@@ -40,6 +61,7 @@ export default function ColaboradorDetalhes() {
     | "colab_ativo"
     | "colab_ferias"
     | "colab_afastado"
+    | "colab_desligado"
     | "admin"
     | "supervisor"
   >;
@@ -62,8 +84,16 @@ export default function ColaboradorDetalhes() {
 
   const [colaborador, setColaborador] = useState<EditableColaborador | null>(null);
   const [privateData, setPrivateData] = useState<PrivateData | null>(null);
+  type ColaboradorStatus = "ativo" | "ferias" | "afastado" | "desligado";
+
   const [role, setRole] = useState<"user" | "supervisor" | "admin">("user");
-  const [status, setStatus] = useState<"ativo" | "ferias" | "afastado">("ativo");
+  const [status, setStatus] = useState<ColaboradorStatus>("ativo");
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<ColaboradorStatus | null>(null);
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [pendingRole, setPendingRole] = useState<"user" | "supervisor" | "admin" | null>(null);
+  const [rolePassword, setRolePassword] = useState("");
+  const [confirmingRole, setConfirmingRole] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [sensitiveVisible, setSensitiveVisible] = useState(true);
@@ -84,6 +114,12 @@ export default function ColaboradorDetalhes() {
       value: "afastado" as const,
       label: "Afastado",
       description: "Colaborador afastado temporariamente.",
+    },
+    {
+      value: "desligado" as const,
+      label: "Desligado",
+      description:
+        "Marcará o colaborador como desligado e desativará todas as contas após 10 minutos.",
     },
   ];
 
@@ -112,14 +148,139 @@ export default function ColaboradorDetalhes() {
   const selectTriggerClasses =
     "min-w-[260px] sm:min-w-[300px] h-12 rounded-lg border border-black/20 bg-white/80 text-left dark:border-white/20 dark:bg-slate-900/60";
 
-  useEffect(() => {
-    if (id) {
-      fetchColaborador();
-      if (userRole === "admin") {
-        fetchPrivateData();
-      }
+  const updateStatusState = (selectedStatus: ColaboradorStatus) => {
+    setStatus(selectedStatus);
+    setColaborador((prev) =>
+      prev
+        ? {
+            ...prev,
+            colab_ativo: selectedStatus === "ativo",
+            colab_ferias: selectedStatus === "ferias",
+            colab_afastado: selectedStatus === "afastado",
+            colab_desligado: selectedStatus === "desligado",
+          }
+        : prev
+    );
+  };
+
+  const handleStatusDialogChange = (open: boolean) => {
+    setStatusDialogOpen(open);
+    if (!open) {
+      setPendingStatus(null);
     }
-  }, [id, userRole]);
+  };
+
+  const handleConfirmPendingStatus = () => {
+    if (!pendingStatus) {
+      return;
+    }
+
+    updateStatusState(pendingStatus);
+    toast.warning(
+      "Colaborador marcado como desligado. Reative o status em até 10 minutos para cancelar o desligamento."
+    );
+    setPendingStatus(null);
+    setStatusDialogOpen(false);
+  };
+
+  const updateRoleState = (selectedRole: "user" | "supervisor" | "admin") => {
+    setRole(selectedRole);
+    setColaborador((prev) =>
+      prev
+        ? {
+            ...prev,
+            admin: selectedRole === "admin",
+            supervisor: selectedRole === "supervisor",
+          }
+        : prev
+    );
+  };
+
+  const handleRoleDialogOpenChange = (open: boolean) => {
+    setRoleDialogOpen(open);
+    if (!open) {
+      setPendingRole(null);
+      setRolePassword("");
+      setConfirmingRole(false);
+    }
+  };
+
+  const handleConfirmRoleChange = async () => {
+    if (!pendingRole) {
+      return;
+    }
+
+    if (!user?.email) {
+      toast.error("Não foi possível confirmar a identidade do usuário atual.");
+      return;
+    }
+
+    if (!rolePassword) {
+      toast.error("Informe sua senha para confirmar a alteração.");
+      return;
+    }
+
+    setConfirmingRole(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: rolePassword,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      updateRoleState(pendingRole);
+
+      await logger.log(
+        "success",
+        "Nível de acesso do colaborador atualizado",
+        "SECURITY_ROLE_CHANGE_ATTEMPT",
+        {
+          colaboradorId,
+          targetRole: pendingRole,
+          performedBy: user.id,
+          result: "success",
+        }
+      );
+
+      toast.success("Nível de acesso atualizado com sucesso!");
+      handleRoleDialogOpenChange(false);
+    } catch (error: any) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      await logger.warning("Tentativa de alteração de nível de acesso falhou", "SECURITY_ROLE_CHANGE_ATTEMPT", {
+        colaboradorId,
+        targetRole: pendingRole,
+        performedBy: user?.id,
+        result: "failed",
+        errorMessage,
+      });
+
+      toast.error("Senha inválida ou não foi possível confirmar a operação.");
+    } finally {
+      setConfirmingRole(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!id) {
+      return;
+    }
+
+    if (!colaboradorId) {
+      toast.error("Identificador de colaborador inválido.");
+      navigate("/colaboradores");
+      return;
+    }
+
+    fetchColaborador(colaboradorId);
+    if (userRole === "admin") {
+      fetchPrivateData(colaboradorId);
+    }
+  }, [id, colaboradorId, userRole, navigate]);
 
   useEffect(() => {
     if (!photoFile) {
@@ -133,13 +294,13 @@ export default function ColaboradorDetalhes() {
     return () => URL.revokeObjectURL(previewUrl);
   }, [photoFile]);
 
-  const fetchColaborador = async () => {
+  const fetchColaborador = async (colaboradorIdParam: string) => {
     const { data, error } = await supabase
       .from("colaborador")
       .select(
-        "id_colaborador, nome, sobrenome, apelido, cargo, email_corporativo, id_clickup, id_slack, data_admissao, colab_ativo, colab_ferias, colab_afastado, admin, supervisor"
+        "id_colaborador, nome, sobrenome, apelido, cargo, email_corporativo, id_clickup, id_slack, data_admissao, colab_ativo, colab_ferias, colab_afastado, colab_desligado, admin, supervisor"
       )
-      .eq("id_colaborador", id)
+      .eq("id_colaborador", colaboradorIdParam)
       .single();
 
     if (error) {
@@ -153,7 +314,9 @@ export default function ColaboradorDetalhes() {
       setColaborador(colaboradorData);
       setRole(colaboradorData.admin ? "admin" : colaboradorData.supervisor ? "supervisor" : "user");
       setStatus(
-        colaboradorData.colab_ferias
+        colaboradorData.colab_desligado
+          ? "desligado"
+          : colaboradorData.colab_ferias
           ? "ferias"
           : colaboradorData.colab_afastado
           ? "afastado"
@@ -162,11 +325,11 @@ export default function ColaboradorDetalhes() {
     }
   };
 
-  const fetchPrivateData = async () => {
+  const fetchPrivateData = async (colaboradorIdParam: string) => {
     const { data, error } = await supabase
       .from("colaborador_private")
       .select("*")
-      .eq("id_colaborador", id)
+      .eq("id_colaborador", colaboradorIdParam)
       .maybeSingle();
 
     if (error) {
@@ -218,7 +381,7 @@ export default function ColaboradorDetalhes() {
     setLoading(true);
 
     try {
-      if (!colaborador || !id) {
+      if (!colaborador || !colaboradorId) {
         throw new Error("Colaborador não encontrado");
       }
 
@@ -234,6 +397,7 @@ export default function ColaboradorDetalhes() {
         "colab_ativo",
         "colab_ferias",
         "colab_afastado",
+        "colab_desligado",
       ] as const;
 
       const payload = allowedFields.reduce((acc, key) => {
@@ -248,7 +412,7 @@ export default function ColaboradorDetalhes() {
           admin: role === "admin",
           supervisor: role === "supervisor",
         })
-        .eq("id_colaborador", id);
+        .eq("id_colaborador", colaboradorId);
 
       if (colaboradorError) throw colaboradorError;
 
@@ -264,7 +428,7 @@ export default function ColaboradorDetalhes() {
         const privatePayload: Record<string, string | null> & {
           contato_emergencia?: string | null;
         } = {
-          id_colaborador: id,
+          id_colaborador: colaboradorId,
           email_pessoal: privateData.email_pessoal || null,
           whatsapp: privateData.telefone_pessoal || null,
           data_aniversario: privateData.data_nascimento || null,
@@ -664,14 +828,18 @@ export default function ColaboradorDetalhes() {
                 <Select
                   value={status}
                   onValueChange={(value) => {
-                    const selectedStatus = value as "ativo" | "ferias" | "afastado";
-                    setStatus(selectedStatus);
-                    setColaborador({
-                      ...colaborador,
-                      colab_ativo: selectedStatus === "ativo",
-                      colab_ferias: selectedStatus === "ferias",
-                      colab_afastado: selectedStatus === "afastado",
-                    });
+                    const selectedStatus = value as ColaboradorStatus;
+                    if (selectedStatus === status) {
+                      return;
+                    }
+
+                    if (selectedStatus === "desligado") {
+                      setPendingStatus("desligado");
+                      setStatusDialogOpen(true);
+                      return;
+                    }
+
+                    updateStatusState(selectedStatus);
                   }}
                 >
                   <SelectTrigger
@@ -704,13 +872,30 @@ export default function ColaboradorDetalhes() {
                 </div>
                 <Select
                   value={role}
-                  onValueChange={(value) => {
-                    setRole(value as "user" | "supervisor" | "admin");
-                    setColaborador({
-                      ...colaborador,
-                      admin: value === "admin",
-                      supervisor: value === "supervisor",
-                    });
+                  onValueChange={async (value) => {
+                    const selectedRole = value as "user" | "supervisor" | "admin";
+
+                    if (selectedRole === role) {
+                      return;
+                    }
+
+                    if (userRole !== "admin" && userRole !== "supervisor") {
+                      toast.error("Você não tem permissão para alterar o nível de acesso.");
+                      await logger.warning(
+                        "Tentativa não autorizada de alteração de nível de acesso",
+                        "SECURITY_ROLE_CHANGE_ATTEMPT",
+                        {
+                          colaboradorId,
+                          targetRole: selectedRole,
+                          performedBy: user?.id,
+                          result: "denied",
+                        }
+                      );
+                      return;
+                    }
+
+                    setPendingRole(selectedRole);
+                    setRoleDialogOpen(true);
                   }}
                 >
                   <SelectTrigger
@@ -737,6 +922,53 @@ export default function ColaboradorDetalhes() {
           </div>
         </form>
       </div>
+      <Dialog open={roleDialogOpen} onOpenChange={handleRoleDialogOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar alteração de nível de acesso</DialogTitle>
+            <DialogDescription>
+              Para alterar o nível de acesso deste colaborador, confirme sua identidade informando a sua senha.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="role-password">Senha do usuário</Label>
+            <Input
+              id="role-password"
+              type="password"
+              value={rolePassword}
+              onChange={(event) => setRolePassword(event.target.value)}
+              placeholder="••••••••"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={() => handleRoleDialogOpenChange(false)} disabled={confirmingRole}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleConfirmRoleChange} disabled={confirmingRole}>
+              {confirmingRole ? "Confirmando..." : "Confirmar alteração"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={statusDialogOpen} onOpenChange={handleStatusDialogChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar desligamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza de que deseja marcar este colaborador como desligado? Após 10 minutos todas as contas
+              vinculadas serão desativadas permanentemente. Para cancelar, altere o status de volta para ativo antes que o
+              prazo termine.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmPendingStatus}>
+              Confirmar desligamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

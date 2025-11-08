@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { Database } from "@/integrations/supabase/types";
+import { unmaskIdentifier } from "@/lib/urlMask";
 
 type Cliente = Database["public"]["Tables"]["clientes_infos"]["Row"];
 type Contato = Database["public"]["Tables"]["cliente_contato"]["Row"];
@@ -42,6 +43,7 @@ type Contato = Database["public"]["Tables"]["cliente_contato"]["Row"];
 export default function ClienteDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const clienteId = id ? unmaskIdentifier(id) : "";
   const [loading, setLoading] = useState(false);
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [contatos, setContatos] = useState<Contato[]>([]);
@@ -58,19 +60,27 @@ export default function ClienteDetalhes() {
   });
 
   useEffect(() => {
-    if (id) {
-      fetchCliente();
-      fetchContatos();
+    if (!id) {
+      return;
     }
-  }, [id]);
 
-  const fetchCliente = async () => {
+    if (!clienteId) {
+      toast.error("Identificador de cliente inválido.");
+      navigate("/clientes");
+      return;
+    }
+
+    fetchCliente(clienteId);
+    fetchContatos(clienteId);
+  }, [id, clienteId, navigate]);
+
+  const fetchCliente = async (clienteIdParam: string) => {
     const { data, error } = await supabase
       .from("clientes_infos")
       .select(
         "id_cliente, nome_cliente, cnpj, segmento, nome_responsavel, data_inauguracao, data_contrato, cliente_ativo, gestao_trafego"
       )
-      .eq("id_cliente", id)
+      .eq("id_cliente", clienteIdParam)
       .single();
 
     if (error) {
@@ -82,11 +92,11 @@ export default function ClienteDetalhes() {
     setCliente(data);
   };
 
-  const fetchContatos = async () => {
+  const fetchContatos = async (clienteIdParam: string) => {
     const { data, error } = await supabase
       .from("cliente_contato")
       .select("id_contato, nome_contato, email, numero_whatsapp, id_grupo_whatsapp")
-      .eq("id_cliente", id);
+      .eq("id_cliente", clienteIdParam);
 
     if (error) {
       console.error("Erro ao buscar contatos:", error);
@@ -121,10 +131,14 @@ export default function ClienteDetalhes() {
         return acc;
       }, {} as Database["public"]["Tables"]["clientes_infos"]["Update"]);
 
+      if (!clienteId) {
+        throw new Error("Identificador de cliente inválido");
+      }
+
       const { error } = await supabase
         .from("clientes_infos")
         .update(payload)
-        .eq("id_cliente", id);
+        .eq("id_cliente", clienteId);
 
       if (error) throw error;
 
@@ -139,13 +153,13 @@ export default function ClienteDetalhes() {
 
   const handleSaveContato = async () => {
     try {
-      if (!id) {
+      if (!clienteId) {
         throw new Error("Cliente inválido");
       }
 
       const dataToSave: Database["public"]["Tables"]["cliente_contato"]["Insert"] = {
         ...contatoFormData,
-        id_cliente: id,
+        id_cliente: clienteId,
         nome_cliente: cliente?.nome_cliente ?? null,
       };
 
@@ -172,7 +186,7 @@ export default function ClienteDetalhes() {
         numero_whatsapp: "",
         id_grupo_whatsapp: "",
       });
-      fetchContatos();
+      fetchContatos(clienteId);
     } catch (error: any) {
       console.error("Erro ao salvar contato:", error);
       toast.error(error.message || "Erro ao salvar contato");
@@ -200,7 +214,9 @@ export default function ClienteDetalhes() {
       if (error) throw error;
 
       toast.success("Contato removido!");
-      fetchContatos();
+      if (clienteId) {
+        fetchContatos(clienteId);
+      }
     } catch (error: any) {
       console.error("Erro ao remover contato:", error);
       toast.error(error.message || "Erro ao remover contato");

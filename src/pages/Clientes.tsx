@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import { maskIdentifier } from "@/lib/urlMask";
 
 export default function Clientes() {
   const [clientes, setClientes] = useState<any[]>([]);
@@ -115,7 +116,7 @@ export default function Clientes() {
                 <TableRow
                   key={cliente.id_cliente}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/clientes/${cliente.id_cliente}`)}
+                  onClick={() => navigate(`/clientes/${maskIdentifier(cliente.id_cliente)}`)}
                 >
                   <TableCell className="font-medium">{cliente.nome_cliente}</TableCell>
                   <TableCell>{cliente.cnpj}</TableCell>
