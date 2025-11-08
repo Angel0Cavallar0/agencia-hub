@@ -762,38 +762,33 @@ export default function ColaboradorDetalhes() {
             </Card>
 
             <Card className={`order-4 ${cardSurfaceClasses}`}>
-              <CardHeader>
-                <CardTitle className="text-lg">Permissões e Acessos</CardTitle>
-                <CardDescription>Defina o nível de acesso do colaborador.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <Label className="text-foreground">Nível de Acesso</Label>
-                  <Select
-                    value={role}
-                    onValueChange={(value) => {
-                      const selectedRole = value as "admin" | "supervisor" | "user";
-                      setRole(selectedRole);
-                    }}
-                  >
-                    <SelectTrigger className={selectTriggerClasses} aria-label="Selecione o nível de acesso">
-                      <SelectValue placeholder="Selecione o nível" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roleOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          <div className="flex flex-col gap-1">
-                            <span className="font-medium">{option.label}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {option.description}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:space-y-0">
+                <div className="flex flex-col">
+                  <CardTitle className="text-lg">Permissões e Acessos</CardTitle>
+                  <CardDescription>Defina o nível de acesso do colaborador.</CardDescription>
                 </div>
-              </CardContent>
+                <Select
+                  value={role}
+                  onValueChange={(value) => {
+                    const selectedRole = value as "admin" | "supervisor" | "user";
+                    setRole(selectedRole);
+                  }}
+                >
+                  <SelectTrigger className={selectTriggerClasses} aria-label="Selecione o nível de acesso">
+                    <SelectValue placeholder="Selecione o nível" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">{option.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardHeader>
             </Card>
           </div>
         </form>
