@@ -460,7 +460,8 @@ export default function ColaboradorDetalhes() {
             )}
 
             <Card className="order-3">
-              <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+              <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+                <CardTitle className="text-lg">Status do Colaborador</CardTitle>
                 <Select
                   value={status}
                   onValueChange={(value) => {
@@ -490,12 +491,12 @@ export default function ColaboradorDetalhes() {
                     ))}
                   </SelectContent>
                 </Select>
-                <CardTitle className="text-lg">Status do Colaborador</CardTitle>
               </CardHeader>
             </Card>
 
             <Card className="order-4">
-              <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+              <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+                <CardTitle className="text-lg">Acesso e Permissões</CardTitle>
                 <Select
                   value={role}
                   onValueChange={(value) => {
@@ -523,7 +524,6 @@ export default function ColaboradorDetalhes() {
                     ))}
                   </SelectContent>
                 </Select>
-                <CardTitle className="text-lg">Acesso e Permissões</CardTitle>
               </CardHeader>
             </Card>
           </div>
