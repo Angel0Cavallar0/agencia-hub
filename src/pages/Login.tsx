@@ -61,11 +61,7 @@ export default function Login() {
 
   return (
     <div
-      className="relative flex min-h-screen items-center justify-center px-4"
-      style={{
-        background:
-          "radial-gradient(circle at center, rgba(103,192,144,0.35) 0%, rgba(8,13,29,0.88) 28%, rgba(8,13,29,0.96) 55%, rgba(8,13,29,1) 78%)",
-      }}
+      className="relative flex min-h-screen items-center justify-center bg-[#080D1D] px-4"
     >
       <Card className="relative w-full max-w-md border-white/10 bg-zinc-900/60 text-white shadow-xl backdrop-blur-xl">
         <CardHeader className="space-y-5 text-center">
@@ -112,6 +108,8 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
+                autoComplete="new-password"
+                data-lpignore="true"
                 className="border-white/20 bg-white/10 text-white placeholder:text-white/60 focus-visible:border-emerald-400 focus-visible:ring-emerald-400 focus-visible:ring-offset-0"
               />
             </div>
