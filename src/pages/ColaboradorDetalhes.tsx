@@ -460,8 +460,11 @@ export default function ColaboradorDetalhes() {
             )}
 
             <Card className="order-3">
-              <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
-                <CardTitle className="text-lg">Status do Colaborador</CardTitle>
+              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:space-y-0">
+                <div className="flex flex-col">
+                  <CardTitle className="text-lg">Status do Colaborador</CardTitle>
+                  <CardDescription>Controle o status atual do colaborador.</CardDescription>
+                </div>
                 <Select
                   value={status}
                   onValueChange={(value) => {
@@ -475,7 +478,10 @@ export default function ColaboradorDetalhes() {
                     });
                   }}
                 >
-                  <SelectTrigger aria-label="Selecione o status do colaborador" className="w-[220px]">
+                  <SelectTrigger
+                    aria-label="Selecione o status do colaborador"
+                    className="min-w-[260px] sm:min-w-[300px]"
+                  >
                     <SelectValue placeholder="Selecione o status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -495,8 +501,11 @@ export default function ColaboradorDetalhes() {
             </Card>
 
             <Card className="order-4">
-              <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
-                <CardTitle className="text-lg">Acesso e Permissões</CardTitle>
+              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:space-y-0">
+                <div className="flex flex-col">
+                  <CardTitle className="text-lg">Acesso e Permissões</CardTitle>
+                  <CardDescription>Defina os níveis de acesso disponíveis.</CardDescription>
+                </div>
                 <Select
                   value={role}
                   onValueChange={(value) => {
@@ -508,7 +517,10 @@ export default function ColaboradorDetalhes() {
                     });
                   }}
                 >
-                  <SelectTrigger aria-label="Selecione o nível de acesso" className="w-[220px]">
+                  <SelectTrigger
+                    aria-label="Selecione o nível de acesso"
+                    className="min-w-[260px] sm:min-w-[300px]"
+                  >
                     <SelectValue placeholder="Selecione um nível de acesso" />
                   </SelectTrigger>
                   <SelectContent>
