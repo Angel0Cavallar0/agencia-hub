@@ -64,7 +64,7 @@ export default function Login() {
       className="relative flex min-h-screen items-center justify-center px-4"
       style={{
         background:
-          "radial-gradient(circle at center, rgba(10,58,66,0.6) 0%, rgba(8,13,29,0.92) 50%, rgba(8,13,29,1) 100%)",
+          "radial-gradient(circle at center, rgba(103,192,144,0.35) 0%, rgba(8,13,29,0.88) 28%, rgba(8,13,29,0.96) 55%, rgba(8,13,29,1) 78%)",
       }}
     >
       <Card className="relative w-full max-w-md border-white/10 bg-zinc-900/60 text-white shadow-xl backdrop-blur-xl">
