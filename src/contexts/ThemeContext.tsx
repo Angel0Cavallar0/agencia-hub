@@ -8,6 +8,7 @@ interface ThemeConfig {
   primaryColor: string;
   secondaryColor: string;
   logoUrl: string;
+  loginLogoUrl: string;
   faviconUrl: string;
 }
 
@@ -30,6 +31,7 @@ interface ThemeContextType extends ThemeConfig {
   setPrimaryColor: (color: string) => void;
   setSecondaryColor: (color: string) => void;
   setLogoUrl: (url: string) => void;
+  setLoginLogoUrl: (url: string) => void;
   setFaviconUrl: (url: string) => void;
   saveAsGlobal: () => Promise<void>;
   loadGlobalSettings: () => Promise<void>;
@@ -41,14 +43,26 @@ const defaultConfig: ThemeConfig = {
   darkMode: false,
   primaryColor: "166 100% 21%",
   secondaryColor: "166 98% 34%",
-  logoUrl: "",
-  faviconUrl: "",
+  logoUrl:
+    "https://camaleon.com.br/wp-content/uploads/2025/01/Logo-Branco-Fundo-Preto-Horizontal-e1762565908356.png",
+  loginLogoUrl:
+    "https://camaleon.com.br/wp-content/uploads/2025/11/Logo-Branco-Fundo-Preto-Horizontal-e1762565908356-Editado.png",
+  faviconUrl:
+    "https://camaleon.com.br/wp-content/uploads/2025/02/cropped-Simbolo-color-Green-Gradient-Copia.png",
 };
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [config, setConfig] = useState<ThemeConfig>(() => {
     const saved = localStorage.getItem("leon-theme-config");
-    return saved ? JSON.parse(saved) : defaultConfig;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as Partial<ThemeConfig>;
+        return { ...defaultConfig, ...parsed };
+      } catch (error) {
+        console.warn("Não foi possível carregar configuração de tema salva:", error);
+      }
+    }
+    return defaultConfig;
   });
 
   useEffect(() => {
@@ -104,6 +118,10 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   const setLogoUrl = (url: string) => {
     setConfig((prev) => ({ ...prev, logoUrl: url }));
+  };
+
+  const setLoginLogoUrl = (url: string) => {
+    setConfig((prev) => ({ ...prev, loginLogoUrl: url }));
   };
 
   const setFaviconUrl = (url: string) => {
@@ -179,6 +197,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         setPrimaryColor,
         setSecondaryColor,
         setLogoUrl,
+        setLoginLogoUrl,
         setFaviconUrl,
         saveAsGlobal,
         loadGlobalSettings,

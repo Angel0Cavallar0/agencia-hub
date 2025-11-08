@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import { maskIdentifier } from "@/lib/urlMask";
 
 export default function Colaboradores() {
   const [colaboradores, setColaboradores] = useState<any[]>([]);
@@ -85,7 +86,9 @@ export default function Colaboradores() {
                 <TableRow
                   key={colab.id_colaborador}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/colaboradores/${colab.id_colaborador}`)}
+                  onClick={() =>
+                    navigate(`/colaboradores/${maskIdentifier(colab.id_colaborador)}`)
+                  }
                 >
                   <TableCell className="font-medium">
                     {colab.nome} {colab.sobrenome}

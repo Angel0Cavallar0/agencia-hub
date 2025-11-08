@@ -26,6 +26,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { logger } from "@/lib/logger";
+import { maskIdentifier, revealIdentifier } from "@/lib/urlMask";
 import type { Database } from "@/integrations/supabase/types";
 
 type Colaborador = Database["public"]["Tables"]["colaborador"]["Row"];
@@ -35,6 +37,8 @@ export default function ColaboradorDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { userRole, user } = useAuth();
+  const collaboratorId = id ? revealIdentifier(id) || id : "";
+  const canAccessSensitive = userRole === "admin" || userRole === "supervisor";
   const [loading, setLoading] = useState(false);
   type EditableColaborador = Pick<
     Colaborador,
@@ -78,8 +82,9 @@ export default function ColaboradorDetalhes() {
   const [status, setStatus] = useState<StatusValue>("ativo");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [sensitiveVisible, setSensitiveVisible] = useState(true);
+  const [sensitiveVisible, setSensitiveVisible] = useState(canAccessSensitive);
   const [availablePrivateFields, setAvailablePrivateFields] = useState<string[]>([]);
+  const [privateLoading, setPrivateLoading] = useState(false);
   const [isDesligadoDialogOpen, setIsDesligadoDialogOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<StatusValue | null>(null);
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
@@ -180,6 +185,16 @@ export default function ColaboradorDetalhes() {
     setPendingRole(value);
     setRolePassword("");
     setIsRoleDialogOpen(true);
+    void logger.warning(
+      "Tentativa de alterar o nível de acesso do colaborador",
+      "SECURITY_ACCESS_CHANGE_ATTEMPT",
+      {
+        collaboratorId,
+        requestedRole: value,
+        currentRole: role,
+        actorId: user?.id,
+      }
+    );
   };
 
   const closeRoleDialog = () => {
@@ -195,11 +210,30 @@ export default function ColaboradorDetalhes() {
 
     if (!user?.email) {
       toast.error("Não foi possível validar suas credenciais.");
+      void logger.error(
+        "Falha ao validar credenciais para alterar nível de acesso",
+        "SECURITY_ACCESS_CHANGE_FAILURE",
+        {
+          collaboratorId,
+          requestedRole: pendingRole,
+          actorId: user?.id,
+          reason: "missing_user_email",
+        }
+      );
       return;
     }
 
     if (!rolePassword) {
       toast.error("Informe sua senha para confirmar.");
+      void logger.warning(
+        "Senha não fornecida na confirmação de alteração de acesso",
+        "SECURITY_ACCESS_CHANGE_INCOMPLETE",
+        {
+          collaboratorId,
+          requestedRole: pendingRole,
+          actorId: user?.id,
+        }
+      );
       return;
     }
 
@@ -225,10 +259,22 @@ export default function ColaboradorDetalhes() {
         };
       });
 
+      await logger.success("Nível de acesso atualizado", {
+        collaboratorId,
+        requestedRole: pendingRole,
+        actorId: user?.id,
+      });
+
       toast.success("Nível de acesso atualizado.");
       closeRoleDialog();
     } catch (error) {
       console.error("Erro ao confirmar nível de acesso:", error);
+      await logger.error("Senha incorreta ao tentar alterar nível de acesso", "SECURITY_ACCESS_CHANGE_FAILURE", {
+        collaboratorId,
+        requestedRole: pendingRole,
+        actorId: user?.id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       toast.error("Senha incorreta. Tente novamente.");
     } finally {
       setIsConfirmingRole(false);
@@ -236,13 +282,41 @@ export default function ColaboradorDetalhes() {
   };
 
   useEffect(() => {
-    if (id) {
-      fetchColaborador();
-      if (userRole === "admin") {
-        fetchPrivateData();
+    if (collaboratorId && id && id === collaboratorId) {
+      const masked = maskIdentifier(collaboratorId);
+      if (masked !== id) {
+        navigate(`/colaboradores/${masked}`, { replace: true });
       }
     }
-  }, [id, userRole]);
+  }, [collaboratorId, id, navigate]);
+
+  useEffect(() => {
+    if (!collaboratorId) {
+      if (id) {
+        toast.error("Identificador do colaborador inválido.");
+        navigate("/colaboradores");
+      }
+      return;
+    }
+
+    void fetchColaborador();
+
+    if (canAccessSensitive) {
+      void fetchPrivateData();
+    } else {
+      setPrivateData(null);
+      setAvailablePrivateFields([]);
+      setPrivateLoading(false);
+    }
+  }, [collaboratorId, canAccessSensitive, id, navigate]);
+
+  useEffect(() => {
+    if (!canAccessSensitive) {
+      setSensitiveVisible(false);
+    } else if (privateData === null) {
+      setSensitiveVisible(true);
+    }
+  }, [canAccessSensitive, privateData]);
 
   useEffect(() => {
     if (!photoFile) {
@@ -262,7 +336,7 @@ export default function ColaboradorDetalhes() {
       .select(
         "id_colaborador, nome, sobrenome, apelido, cargo, email_corporativo, id_clickup, id_slack, data_admissao, colab_ativo, colab_ferias, colab_afastado, admin, supervisor"
       )
-      .eq("id_colaborador", id)
+      .eq("id_colaborador", collaboratorId)
       .single();
 
     if (error) {
@@ -288,14 +362,16 @@ export default function ColaboradorDetalhes() {
   };
 
   const fetchPrivateData = async () => {
+    setPrivateLoading(true);
     const { data, error } = await supabase
       .from("colaborador_private")
       .select("*")
-      .eq("id_colaborador", id)
+      .eq("id_colaborador", collaboratorId)
       .maybeSingle();
 
     if (error) {
       console.error("Erro ao buscar dados privados:", error);
+      setPrivateLoading(false);
       return;
     }
 
@@ -336,6 +412,7 @@ export default function ColaboradorDetalhes() {
       contato_emergencia_nome: emergencyName,
       contato_emergencia_telefone: emergencyPhone,
     });
+    setPrivateLoading(false);
   };
 
   const handleUpdateColaborador = async (e: React.FormEvent) => {
@@ -343,7 +420,7 @@ export default function ColaboradorDetalhes() {
     setLoading(true);
 
     try {
-      if (!colaborador || !id) {
+      if (!colaborador || !collaboratorId) {
         throw new Error("Colaborador não encontrado");
       }
 
@@ -373,11 +450,11 @@ export default function ColaboradorDetalhes() {
           admin: role === "admin",
           supervisor: role === "supervisor",
         })
-        .eq("id_colaborador", id);
+        .eq("id_colaborador", collaboratorId);
 
       if (colaboradorError) throw colaboradorError;
 
-      if (userRole === "admin" && privateData) {
+      if (canAccessSensitive && privateData) {
         const emergencyPayload =
           privateData.contato_emergencia_nome || privateData.contato_emergencia_telefone
             ? JSON.stringify({
@@ -389,7 +466,7 @@ export default function ColaboradorDetalhes() {
         const privatePayload: Record<string, string | null> & {
           contato_emergencia?: string | null;
         } = {
-          id_colaborador: id,
+          id_colaborador: collaboratorId,
           email_pessoal: privateData.email_pessoal || null,
           whatsapp: privateData.telefone_pessoal || null,
           data_aniversario: privateData.data_nascimento || null,
@@ -433,6 +510,23 @@ export default function ColaboradorDetalhes() {
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
     setPhotoFile(file);
+  };
+
+  const handleSensitiveToggle = () => {
+    if (!canAccessSensitive) {
+      void logger.warning(
+        "Tentativa de visualizar dados sensíveis sem permissão",
+        "SECURITY_SENSITIVE_VIEW_DENIED",
+        {
+          collaboratorId,
+          actorId: user?.id,
+        }
+      );
+      toast.error("Sem Permissão");
+      return;
+    }
+
+    setSensitiveVisible((prev) => !prev);
   };
 
   if (!colaborador) {
@@ -629,156 +723,171 @@ export default function ColaboradorDetalhes() {
               </CardContent>
             </Card>
 
-            {userRole === "admin" && privateData ? (
-              <Card className={`order-2 ${cardSurfaceClasses}`}>
-                <CardHeader className="flex items-start justify-between gap-4 pb-4">
-                  <div>
-                    <CardTitle className="text-xl font-semibold text-foreground">
-                      Dados Sensíveis
-                    </CardTitle>
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={() => setSensitiveVisible((prev) => !prev)}
-                    className={`h-8 rounded-full px-4 text-xs font-semibold tracking-wide ${
-                      sensitiveVisible
+            <Card className={`order-2 ${cardSurfaceClasses}`}>
+              <CardHeader className="flex items-start justify-between gap-4 pb-4">
+                <div>
+                  <CardTitle className="text-xl font-semibold text-foreground">
+                    Dados Sensíveis
+                  </CardTitle>
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleSensitiveToggle}
+                  aria-disabled={!canAccessSensitive}
+                  className={`h-8 rounded-full px-4 text-xs font-semibold tracking-wide transition-colors ${
+                    canAccessSensitive
+                      ? sensitiveVisible
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {sensitiveVisible ? "visível" : "oculto"}
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {sensitiveVisible ? (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="cpf">CPF</Label>
-                        <Input
-                          id="cpf"
-                          value={privateData.cpf}
-                          className={inputSurfaceClasses}
-                          onChange={(e) =>
-                            setPrivateData({
-                              ...privateData,
-                              cpf: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="rg">RG</Label>
-                        <Input
-                          id="rg"
-                          value={privateData.rg}
-                          className={inputSurfaceClasses}
-                          onChange={(e) =>
-                            setPrivateData({
-                              ...privateData,
-                              rg: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="data_nascimento">Data de Nascimento</Label>
-                        <Input
-                          id="data_nascimento"
-                          type="date"
-                          value={privateData.data_nascimento}
-                          className={inputSurfaceClasses}
-                          onChange={(e) =>
-                            setPrivateData({
-                              ...privateData,
-                              data_nascimento: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="endereco_residencial">Endereço Residencial</Label>
-                        <Input
-                          id="endereco_residencial"
-                          value={privateData.endereco_residencial}
-                          className={inputSurfaceClasses}
-                          onChange={(e) =>
-                            setPrivateData({
-                              ...privateData,
-                              endereco_residencial: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="telefone_pessoal">Telefone Pessoal</Label>
-                        <Input
-                          id="telefone_pessoal"
-                          value={privateData.telefone_pessoal}
-                          className={inputSurfaceClasses}
-                          onChange={(e) =>
-                            setPrivateData({
-                              ...privateData,
-                              telefone_pessoal: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="email_pessoal">E-mail Pessoal</Label>
-                        <Input
-                          id="email_pessoal"
-                          type="email"
-                          value={privateData.email_pessoal}
-                          className={inputSurfaceClasses}
-                          onChange={(e) =>
-                            setPrivateData({
-                              ...privateData,
-                              email_pessoal: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="grid gap-4 md:col-span-2 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label htmlFor="contato_emergencia_nome">Nome do Contato de Emergência</Label>
-                          <Input
-                            id="contato_emergencia_nome"
-                            value={privateData.contato_emergencia_nome}
-                            className={inputSurfaceClasses}
-                            onChange={(e) =>
-                              setPrivateData({
-                                ...privateData,
-                                contato_emergencia_nome: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="contato_emergencia_telefone">Telefone do Contato de Emergência</Label>
-                          <Input
-                            id="contato_emergencia_telefone"
-                            value={privateData.contato_emergencia_telefone}
-                            className={inputSurfaceClasses}
-                            onChange={(e) =>
-                              setPrivateData({
-                                ...privateData,
-                                contato_emergencia_telefone: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
+                      : "bg-muted text-muted-foreground opacity-90"
+                  }`}
+                >
+                  {canAccessSensitive && sensitiveVisible ? "visível" : "oculto"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {canAccessSensitive ? (
+                  privateLoading ? (
+                    <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-white/70 p-6 text-center text-sm text-muted-foreground dark:bg-slate-900/60">
+                      Carregando dados sensíveis...
                     </div>
+                  ) : sensitiveVisible ? (
+                    privateData ? (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="cpf">CPF</Label>
+                          <Input
+                            id="cpf"
+                            value={privateData.cpf}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                cpf: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="rg">RG</Label>
+                          <Input
+                            id="rg"
+                            value={privateData.rg}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                rg: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="data_nascimento">Data de Nascimento</Label>
+                          <Input
+                            id="data_nascimento"
+                            type="date"
+                            value={privateData.data_nascimento}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                data_nascimento: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="endereco_residencial">Endereço Residencial</Label>
+                          <Input
+                            id="endereco_residencial"
+                            value={privateData.endereco_residencial}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                endereco_residencial: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="telefone_pessoal">Telefone Pessoal</Label>
+                          <Input
+                            id="telefone_pessoal"
+                            value={privateData.telefone_pessoal}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                telefone_pessoal: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="email_pessoal">E-mail Pessoal</Label>
+                          <Input
+                            id="email_pessoal"
+                            type="email"
+                            value={privateData.email_pessoal}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                email_pessoal: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="grid gap-4 md:col-span-2 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="contato_emergencia_nome">Nome do Contato de Emergência</Label>
+                            <Input
+                              id="contato_emergencia_nome"
+                              value={privateData.contato_emergencia_nome}
+                              className={inputSurfaceClasses}
+                              onChange={(e) =>
+                                setPrivateData({
+                                  ...privateData,
+                                  contato_emergencia_nome: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="contato_emergencia_telefone">Telefone do Contato de Emergência</Label>
+                            <Input
+                              id="contato_emergencia_telefone"
+                              value={privateData.contato_emergencia_telefone}
+                              className={inputSurfaceClasses}
+                              onChange={(e) =>
+                                setPrivateData({
+                                  ...privateData,
+                                  contato_emergencia_telefone: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-white/70 p-6 text-center text-sm text-muted-foreground dark:bg-slate-900/60">
+                        Nenhum dado sensível disponível para este colaborador.
+                      </div>
+                    )
                   ) : (
                     <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-white/70 p-6 text-center text-sm text-muted-foreground dark:bg-slate-900/60">
                       Os dados sensíveis estão ocultos. Clique em "visível" para exibir novamente.
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="order-2 hidden xl:block" />
-            )}
+                  )
+                ) : (
+                  <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-white/70 p-6 text-center text-sm text-muted-foreground dark:bg-slate-900/60">
+                    Você não tem permissão para visualizar esses dados.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             <Card className={`order-3 ${cardSurfaceClasses}`}>
               <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:space-y-0">
