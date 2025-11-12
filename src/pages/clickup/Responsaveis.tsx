@@ -45,6 +45,7 @@ export default function ClickupResponsaveis() {
         supabase
           .from("clientes_infos")
           .select("id_cliente, nome_cliente")
+          .eq("cliente_ativo", true)
           .order("nome_cliente", { ascending: true }),
         supabase
           .from("colaborador")
