@@ -102,9 +102,9 @@ export function Sidebar() {
       </nav>
 
       {/* Footer com Logs, Configurações e Sair */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="px-4 py-3 border-t border-sidebar-border">
         <TooltipProvider delayDuration={0}>
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-center gap-3">
             {userRole === "admin" && (
               <>
                 <Tooltip>
@@ -113,8 +113,8 @@ export function Sidebar() {
                       to="/logs"
                       end
                       aria-label="Logs"
-                      className="flex h-10 w-10 items-center justify-center rounded-lg border border-sidebar-border text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground border-transparent"
+                      className="flex items-center justify-center p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                      activeClassName="text-sidebar-accent-foreground"
                     >
                       <FileText className="h-5 w-5" />
                       <span className="sr-only">Logs</span>
@@ -128,8 +128,8 @@ export function Sidebar() {
                       to="/configuracoes"
                       end
                       aria-label="Configurações"
-                      className="flex h-10 w-10 items-center justify-center rounded-lg border border-sidebar-border text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground border-transparent"
+                      className="flex items-center justify-center p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                      activeClassName="text-sidebar-accent-foreground"
                     >
                       <Settings className="h-5 w-5" />
                       <span className="sr-only">Configurações</span>
@@ -144,7 +144,7 @@ export function Sidebar() {
                 <button
                   onClick={signOut}
                   aria-label="Sair"
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-sidebar-border text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                  className="flex items-center justify-center p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
                 >
                   <LogOut className="h-5 w-5" />
                   <span className="sr-only">Sair</span>
