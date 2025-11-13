@@ -1109,7 +1109,7 @@ export default function ColaboradorDetalhes() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2 md:col-span-2">
+                  <div className="space-y-2">
                     <Label htmlFor="nivel_acesso_crm">Nível de acesso CRM</Label>
                     <Select
                       value={crmAccessLevel}
