@@ -137,15 +137,14 @@ export default function Perfil() {
     [colaborador.colab_afastado, colaborador.colab_ativo, colaborador.colab_desligado, colaborador.colab_ferias]
   );
 
-  const accessBadges = useMemo(
-    () => [
-      { label: "Administrador", active: colaborador.admin === true },
-      { label: "Supervisor", active: colaborador.supervisor === true },
-    ],
+  const activeAccessBadges = useMemo(
+    () =>
+      [
+        { label: "Administrador", active: colaborador.admin === true },
+        { label: "Supervisor", active: colaborador.supervisor === true },
+      ].filter((badge) => badge.active),
     [colaborador.admin, colaborador.supervisor]
   );
-
-  const hasElevatedAccess = useMemo(() => accessBadges.some((badge) => badge.active), [accessBadges]);
 
   const loadProfile = useCallback(async () => {
     if (!user?.id) {
@@ -272,13 +271,23 @@ export default function Perfil() {
   const formattedAdmission = useMemo(() => formatDate(colaborador.data_admissao), [colaborador.data_admissao]);
   const formattedPersonalBirthday = useMemo(() => formatDate(privateData.data_nascimento), [privateData.data_nascimento]);
 
-  const combinedStatusBadges = useMemo(() => {
+  const statusAndAccessBadges = useMemo(() => {
     const badges = [...activeStatusBadges];
+
     if (hasWppPermission) {
       badges.push({ label: "Permissão WhatsApp", active: true });
     }
+
+    if (activeAccessBadges.length > 0) {
+      activeAccessBadges.forEach((badge) => {
+        badges.push({ label: badge.label, active: true });
+      });
+    } else {
+      badges.push({ label: "Colaborador", active: true });
+    }
+
     return badges;
-  }, [activeStatusBadges, hasWppPermission]);
+  }, [activeAccessBadges, activeStatusBadges, hasWppPermission]);
 
   return (
     <Layout>
@@ -325,33 +334,12 @@ export default function Perfil() {
                 </div>
                 <div className="flex w-full flex-col gap-4 md:w-auto md:items-end">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Status</p>
+                    <p className="text-sm font-medium text-muted-foreground">Status e acessos</p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {combinedStatusBadges.length > 0 ? (
-                        combinedStatusBadges.map((badge) => (
-                          <Badge key={badge.label}>{badge.label}</Badge>
-                        ))
+                      {statusAndAccessBadges.length > 0 ? (
+                        statusAndAccessBadges.map((badge) => <Badge key={badge.label}>{badge.label}</Badge>)
                       ) : (
                         <span className="text-sm text-muted-foreground">Nenhum status ativo registrado</span>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Níveis de acesso</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {accessBadges.map((badge) => (
-                        <Badge
-                          key={badge.label}
-                          variant={badge.active ? "default" : "outline"}
-                          className={badge.active ? undefined : "text-muted-foreground"}
-                        >
-                          {badge.label}
-                        </Badge>
-                      ))}
-                      {!hasElevatedAccess && (
-                        <Badge variant="outline" className="text-muted-foreground">
-                          Colaborador
-                        </Badge>
                       )}
                     </div>
                   </div>
