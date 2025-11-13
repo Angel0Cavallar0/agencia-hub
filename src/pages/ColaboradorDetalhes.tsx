@@ -628,7 +628,7 @@ export default function ColaboradorDetalhes() {
   if (!colaborador) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex h-full items-center justify-center">
           <p className="text-muted-foreground">Carregando...</p>
         </div>
       </Layout>
@@ -637,506 +637,508 @@ export default function ColaboradorDetalhes() {
 
   return (
     <Layout>
-      <div className="w-full max-w-6xl space-y-6">
-        <form onSubmit={handleUpdateColaborador} className="space-y-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/colaboradores")}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">
-                  {colaborador.nome} {colaborador.sobrenome}
-                </h1>
-                <p className="text-muted-foreground">
-                  {colaborador.cargo || "Sem cargo definido"}
-                </p>
+      <div className="flex h-full flex-col overflow-hidden">
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-1 flex-col overflow-y-auto pr-1 sm:pr-2 lg:pr-4">
+          <form onSubmit={handleUpdateColaborador} className="space-y-6 pb-10">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" onClick={() => navigate("/colaboradores")}>
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight">
+                    {colaborador.nome} {colaborador.sobrenome}
+                  </h1>
+                  <p className="text-muted-foreground">
+                    {colaborador.cargo || "Sem cargo definido"}
+                  </p>
+                </div>
               </div>
+              <Button type="submit" disabled={loading} className="min-w-[180px]">
+                {loading ? "Salvando..." : "Salvar Alterações"}
+              </Button>
             </div>
-            <Button type="submit" disabled={loading} className="min-w-[180px]">
-              {loading ? "Salvando..." : "Salvar Alterações"}
-            </Button>
-          </div>
 
-          <div className="grid gap-6 xl:grid-cols-2">
-            <Card className={`order-1 ${cardSurfaceClasses}`}>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-xl font-semibold text-foreground">
-                  Informações Principais
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-6 lg:flex-row">
-                <div className="flex w-full max-w-[180px] flex-col items-center gap-4">
-                  <div
-                    className="flex h-36 w-36 items-center justify-center rounded-full bg-emerald-800 text-lg font-semibold uppercase tracking-wide text-white"
-                    style={
-                      photoPreview
-                        ? {
-                            backgroundImage: `url(${photoPreview})`,
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
-                          }
-                        : undefined
-                    }
-                  >
-                    {!photoPreview && "foto"}
-                  </div>
-                  <div>
-                    <input
-                      id="foto_colaborador"
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoChange}
-                      className="hidden"
-                    />
-                    <Button
-                      type="button"
-                      onClick={() =>
-                        document.getElementById("foto_colaborador")?.click()
-                      }
-                      className="h-8 rounded-full bg-emerald-800 px-4 text-xs font-semibold tracking-wide text-white hover:bg-emerald-900"
-                    >
-                      ALTERAR FOTO
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex-1 space-y-6">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="nome">Nome *</Label>
-                      <Input
-                        id="nome"
-                        required
-                        value={colaborador.nome || ""}
-                        className={inputSurfaceClasses}
-                        onChange={(e) =>
-                          setColaborador({ ...colaborador, nome: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="sobrenome">Sobrenome</Label>
-                      <Input
-                        id="sobrenome"
-                        value={colaborador.sobrenome || ""}
-                        className={inputSurfaceClasses}
-                        onChange={(e) =>
-                          setColaborador({
-                            ...colaborador,
-                            sobrenome: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="apelido">Apelido</Label>
-                      <Input
-                        id="apelido"
-                        value={colaborador.apelido || ""}
-                        className={inputSurfaceClasses}
-                        onChange={(e) =>
-                          setColaborador({ ...colaborador, apelido: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="id_colaborador">ID Colaborador</Label>
-                      <Input
-                        id="id_colaborador"
-                        value={colaborador.id_colaborador || ""}
-                        className={inputSurfaceClasses}
-                        readOnly
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cargo">Cargo</Label>
-                      <Input
-                        id="cargo"
-                        value={colaborador.cargo || ""}
-                        className={inputSurfaceClasses}
-                        onChange={(e) =>
-                          setColaborador({ ...colaborador, cargo: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="data_admissao">Data de Contratação</Label>
-                      <Input
-                        id="data_admissao"
-                        type="date"
-                        value={colaborador.data_admissao || ""}
-                        className={inputSurfaceClasses}
-                        onChange={(e) =>
-                          setColaborador({
-                            ...colaborador,
-                            data_admissao: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="email_corporativo">E-mail Corporativo</Label>
-                      <Input
-                        id="email_corporativo"
-                        type="email"
-                        value={colaborador.email_corporativo || ""}
-                        className={`md:max-w-xl ${inputSurfaceClasses}`}
-                        onChange={(e) =>
-                          setColaborador({
-                            ...colaborador,
-                            email_corporativo: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="id_clickup">ID ClickUp</Label>
-                      <Input
-                        id="id_clickup"
-                        value={colaborador.id_clickup || ""}
-                        className={inputSurfaceClasses}
-                        onChange={(e) =>
-                          setColaborador({ ...colaborador, id_clickup: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="id_slack">ID Slack</Label>
-                      <Input
-                        id="id_slack"
-                        value={colaborador.id_slack || ""}
-                        className={inputSurfaceClasses}
-                        onChange={(e) =>
-                          setColaborador({ ...colaborador, id_slack: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                  <Separator />
-                  <div className="space-y-2">
-                    <Label htmlFor="status_colaborador">Status do Colaborador</Label>
-                    <Select
-                      value={status}
-                      onValueChange={(value) => {
-                        const selectedStatus = value as "ativo" | "ferias" | "afastado" | "desligado";
-
-                        // Se está marcando como desligado, mostra diálogo de confirmação
-                        if (selectedStatus === "desligado") {
-                          setShowDesligadoDialog(true);
-                          return;
-                        }
-
-                        setStatus(selectedStatus);
-                        setColaborador({
-                          ...colaborador,
-                          colab_ativo: selectedStatus === "ativo",
-                          colab_ferias: selectedStatus === "ferias",
-                          colab_afastado: selectedStatus === "afastado",
-                          colab_desligado: false,
-                        });
-                      }}
-                    >
-                      <SelectTrigger
-                        id="status_colaborador"
-                        aria-label="Selecione o status do colaborador"
-                        className={`${selectTriggerClasses} w-full max-w-sm`}
-                      >
-                        <SelectValue placeholder="Selecione o status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statusOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex flex-col gap-1">
-                              <span className="font-medium">{option.label}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {option.description}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {userRole === "admin" && privateData ? (
-              <Card className={`order-2 ${cardSurfaceClasses}`}>
-                <CardHeader className="flex items-start justify-between gap-4 pb-4">
-                  <div>
-                    <CardTitle className="text-xl font-semibold text-foreground">
-                      Dados Sensíveis
-                    </CardTitle>
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={() => setSensitiveVisible((prev) => !prev)}
-                    className={`h-8 rounded-full px-4 text-xs font-semibold tracking-wide ${
-                      sensitiveVisible
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {sensitiveVisible ? "visivel" : "visivel"}
-                  </Button>
+            <div className="grid gap-6 xl:grid-cols-2">
+              <Card className={`order-1 ${cardSurfaceClasses}`}>
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-xl font-semibold text-foreground">
+                    Informações Principais
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  {sensitiveVisible ? (
+                <CardContent className="flex flex-col gap-6 lg:flex-row">
+                  <div className="flex w-full max-w-[180px] flex-col items-center gap-4">
+                    <div
+                      className="flex h-36 w-36 items-center justify-center rounded-full bg-emerald-800 text-lg font-semibold uppercase tracking-wide text-white"
+                      style={
+                        photoPreview
+                          ? {
+                              backgroundImage: `url(${photoPreview})`,
+                              backgroundSize: "cover",
+                              backgroundPosition: "center",
+                            }
+                          : undefined
+                      }
+                    >
+                      {!photoPreview && "foto"}
+                    </div>
+                    <div>
+                      <input
+                        id="foto_colaborador"
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() =>
+                          document.getElementById("foto_colaborador")?.click()
+                        }
+                        className="h-8 rounded-full bg-emerald-800 px-4 text-xs font-semibold tracking-wide text-white hover:bg-emerald-900"
+                      >
+                        ALTERAR FOTO
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-6">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="cpf">CPF</Label>
+                        <Label htmlFor="nome">Nome *</Label>
                         <Input
-                          id="cpf"
-                          value={privateData.cpf}
+                          id="nome"
+                          required
+                          value={colaborador.nome || ""}
                           className={inputSurfaceClasses}
                           onChange={(e) =>
-                            setPrivateData({
-                              ...privateData,
-                              cpf: e.target.value,
+                            setColaborador({ ...colaborador, nome: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="sobrenome">Sobrenome</Label>
+                        <Input
+                          id="sobrenome"
+                          value={colaborador.sobrenome || ""}
+                          className={inputSurfaceClasses}
+                          onChange={(e) =>
+                            setColaborador({
+                              ...colaborador,
+                              sobrenome: e.target.value,
                             })
                           }
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="rg">RG</Label>
+                        <Label htmlFor="apelido">Apelido</Label>
                         <Input
-                          id="rg"
-                          value={privateData.rg}
+                          id="apelido"
+                          value={colaborador.apelido || ""}
                           className={inputSurfaceClasses}
                           onChange={(e) =>
-                            setPrivateData({
-                              ...privateData,
-                              rg: e.target.value,
-                            })
+                            setColaborador({ ...colaborador, apelido: e.target.value })
                           }
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="data_nascimento">Data de Nascimento</Label>
+                        <Label htmlFor="id_colaborador">ID Colaborador</Label>
                         <Input
-                          id="data_nascimento"
+                          id="id_colaborador"
+                          value={colaborador.id_colaborador || ""}
+                          className={inputSurfaceClasses}
+                          readOnly
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cargo">Cargo</Label>
+                        <Input
+                          id="cargo"
+                          value={colaborador.cargo || ""}
+                          className={inputSurfaceClasses}
+                          onChange={(e) =>
+                            setColaborador({ ...colaborador, cargo: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="data_admissao">Data de Contratação</Label>
+                        <Input
+                          id="data_admissao"
                           type="date"
-                          value={privateData.data_nascimento}
+                          value={colaborador.data_admissao || ""}
                           className={inputSurfaceClasses}
                           onChange={(e) =>
-                            setPrivateData({
-                              ...privateData,
-                              data_nascimento: e.target.value,
+                            setColaborador({
+                              ...colaborador,
+                              data_admissao: e.target.value,
                             })
                           }
                         />
                       </div>
                       <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="endereco_residencial">Endereço Residencial</Label>
+                        <Label htmlFor="email_corporativo">E-mail Corporativo</Label>
                         <Input
-                          id="endereco_residencial"
-                          value={privateData.endereco_residencial}
-                          className={inputSurfaceClasses}
-                          onChange={(e) =>
-                            setPrivateData({
-                              ...privateData,
-                              endereco_residencial: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="telefone_pessoal">Telefone Pessoal</Label>
-                        <PhoneInput
-                          value={privateData.telefone_pessoal}
-                          onChange={(value) =>
-                            setPrivateData({
-                              ...privateData,
-                              telefone_pessoal: value,
-                            })
-                          }
-                          className={inputSurfaceClasses}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="email_pessoal">E-mail Pessoal</Label>
-                        <Input
-                          id="email_pessoal"
+                          id="email_corporativo"
                           type="email"
-                          value={privateData.email_pessoal}
-                          className={inputSurfaceClasses}
+                          value={colaborador.email_corporativo || ""}
+                          className={`md:max-w-xl ${inputSurfaceClasses}`}
                           onChange={(e) =>
-                            setPrivateData({
-                              ...privateData,
-                              email_pessoal: e.target.value,
+                            setColaborador({
+                              ...colaborador,
+                              email_corporativo: e.target.value,
                             })
                           }
                         />
                       </div>
-                      <div className="md:col-span-2 space-y-3">
-                        <p className="text-sm font-semibold text-muted-foreground">Contatos de emergência</p>
-                        <div className="grid gap-4 md:grid-cols-2">
-                          <div className="space-y-2">
-                            <Label htmlFor="contato_emergencia_nome">Nome</Label>
-                            <Input
-                              id="contato_emergencia_nome"
-                              value={privateData.contato_emergencia_nome}
-                              placeholder="Ex: Marcia"
-                              className={inputSurfaceClasses}
-                              onChange={(e) =>
-                                setPrivateData({
-                                  ...privateData,
-                                  contato_emergencia_nome: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="contato_emergencia_telefone">Telefone</Label>
-                            <PhoneInput
-                              value={privateData.contato_emergencia_telefone}
-                              onChange={(value) =>
-                                setPrivateData({
-                                  ...privateData,
-                                  contato_emergencia_telefone: value,
-                                })
-                              }
-                              className={inputSurfaceClasses}
-                            />
+                      <div className="space-y-2">
+                        <Label htmlFor="id_clickup">ID ClickUp</Label>
+                        <Input
+                          id="id_clickup"
+                          value={colaborador.id_clickup || ""}
+                          className={inputSurfaceClasses}
+                          onChange={(e) =>
+                            setColaborador({ ...colaborador, id_clickup: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="id_slack">ID Slack</Label>
+                        <Input
+                          id="id_slack"
+                          value={colaborador.id_slack || ""}
+                          className={inputSurfaceClasses}
+                          onChange={(e) =>
+                            setColaborador({ ...colaborador, id_slack: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-2">
+                      <Label htmlFor="status_colaborador">Status do Colaborador</Label>
+                      <Select
+                        value={status}
+                        onValueChange={(value) => {
+                          const selectedStatus = value as "ativo" | "ferias" | "afastado" | "desligado";
+
+                          // Se está marcando como desligado, mostra diálogo de confirmação
+                          if (selectedStatus === "desligado") {
+                            setShowDesligadoDialog(true);
+                            return;
+                          }
+
+                          setStatus(selectedStatus);
+                          setColaborador({
+                            ...colaborador,
+                            colab_ativo: selectedStatus === "ativo",
+                            colab_ferias: selectedStatus === "ferias",
+                            colab_afastado: selectedStatus === "afastado",
+                            colab_desligado: false,
+                          });
+                        }}
+                      >
+                        <SelectTrigger
+                          id="status_colaborador"
+                          aria-label="Selecione o status do colaborador"
+                          className={`${selectTriggerClasses} w-full max-w-sm`}
+                        >
+                          <SelectValue placeholder="Selecione o status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              <div className="flex flex-col gap-1">
+                                <span className="font-medium">{option.label}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {option.description}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {userRole === "admin" && privateData ? (
+                <Card className={`order-2 ${cardSurfaceClasses}`}>
+                  <CardHeader className="flex items-start justify-between gap-4 pb-4">
+                    <div>
+                      <CardTitle className="text-xl font-semibold text-foreground">
+                        Dados Sensíveis
+                      </CardTitle>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => setSensitiveVisible((prev) => !prev)}
+                      className={`h-8 rounded-full px-4 text-xs font-semibold tracking-wide ${
+                        sensitiveVisible
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {sensitiveVisible ? "visivel" : "visivel"}
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    {sensitiveVisible ? (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="cpf">CPF</Label>
+                          <Input
+                            id="cpf"
+                            value={privateData.cpf}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                cpf: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="rg">RG</Label>
+                          <Input
+                            id="rg"
+                            value={privateData.rg}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                rg: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="data_nascimento">Data de Nascimento</Label>
+                          <Input
+                            id="data_nascimento"
+                            type="date"
+                            value={privateData.data_nascimento}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                data_nascimento: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="endereco_residencial">Endereço Residencial</Label>
+                          <Input
+                            id="endereco_residencial"
+                            value={privateData.endereco_residencial}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                endereco_residencial: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="telefone_pessoal">Telefone Pessoal</Label>
+                          <PhoneInput
+                            value={privateData.telefone_pessoal}
+                            onChange={(value) =>
+                              setPrivateData({
+                                ...privateData,
+                                telefone_pessoal: value,
+                              })
+                            }
+                            className={inputSurfaceClasses}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="email_pessoal">E-mail Pessoal</Label>
+                          <Input
+                            id="email_pessoal"
+                            type="email"
+                            value={privateData.email_pessoal}
+                            className={inputSurfaceClasses}
+                            onChange={(e) =>
+                              setPrivateData({
+                                ...privateData,
+                                email_pessoal: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="md:col-span-2 space-y-3">
+                          <p className="text-sm font-semibold text-muted-foreground">Contatos de emergência</p>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="contato_emergencia_nome">Nome</Label>
+                              <Input
+                                id="contato_emergencia_nome"
+                                value={privateData.contato_emergencia_nome}
+                                placeholder="Ex: Marcia"
+                                className={inputSurfaceClasses}
+                                onChange={(e) =>
+                                  setPrivateData({
+                                    ...privateData,
+                                    contato_emergencia_nome: e.target.value,
+                                  })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="contato_emergencia_telefone">Telefone</Label>
+                              <PhoneInput
+                                value={privateData.contato_emergencia_telefone}
+                                onChange={(value) =>
+                                  setPrivateData({
+                                    ...privateData,
+                                    contato_emergencia_telefone: value,
+                                  })
+                                }
+                                className={inputSurfaceClasses}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-white/70 p-6 text-center text-sm text-muted-foreground dark:bg-slate-900/60">
+                        Os dados sensíveis estão ocultos. Clique em "visível" para exibir novamente.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="order-2 hidden xl:block" />
+              )}
+
+              <Card className={`order-3 xl:col-span-2 ${cardSurfaceClasses}`}>
+                <CardHeader className="pb-4">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg">Permissões e Acessos</CardTitle>
+                    <CardDescription>Defina os níveis de acesso e canais liberados para o colaborador.</CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="nivel_acesso_sistema">Nível de acesso ao sistema</Label>
+                      <Select
+                        value={role}
+                        onValueChange={(value) => {
+                          const selectedRole = value as "admin" | "supervisor" | "user";
+                          setRole(selectedRole);
+                          setColaborador((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  admin: selectedRole === "admin",
+                                  supervisor: selectedRole === "supervisor",
+                                }
+                              : current
+                          );
+                        }}
+                      >
+                        <SelectTrigger
+                          id="nivel_acesso_sistema"
+                          className={`${selectTriggerClasses} w-full min-w-0`}
+                          aria-label="Selecione o nível de acesso ao sistema"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roleOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              <div className="flex flex-col gap-1">
+                                <span className="font-medium">{option.label}</span>
+                                <span className="text-xs text-muted-foreground">{option.description}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ) : (
-                    <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-white/70 p-6 text-center text-sm text-muted-foreground dark:bg-slate-900/60">
-                      Os dados sensíveis estão ocultos. Clique em "visível" para exibir novamente.
+
+                    <div className="space-y-2">
+                      <Label htmlFor="acesso_whatsapp">Acesso ao WhatsApp</Label>
+                      <Select
+                        value={wppAccess ? "sim" : "nao"}
+                        onValueChange={(value) => {
+                          setWppAccess(value === "sim");
+                        }}
+                      >
+                        <SelectTrigger
+                          id="acesso_whatsapp"
+                          className={`${selectTriggerClasses} w-full min-w-0`}
+                          aria-label="Defina se o colaborador tem acesso ao WhatsApp"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sim">Sim</SelectItem>
+                          <SelectItem value="nao">Não</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="acesso_crm">Acesso ao CRM</Label>
+                      <Select
+                        value={crmAccess ? "sim" : "nao"}
+                        onValueChange={(value) => {
+                          const hasAccess = value === "sim";
+                          setCrmAccess(hasAccess);
+                          if (!hasAccess) {
+                            setCrmAccessLevel("negado");
+                          }
+                        }}
+                      >
+                        <SelectTrigger
+                          id="acesso_crm"
+                          className={`${selectTriggerClasses} w-full min-w-0`}
+                          aria-label="Defina se o colaborador tem acesso ao CRM"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sim">Sim</SelectItem>
+                          <SelectItem value="nao">Não</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="nivel_acesso_crm">Nível de acesso CRM</Label>
+                      <Select
+                        value={crmAccessLevel}
+                        onValueChange={(value) => setCrmAccessLevel(value as CRMLevel)}
+                        disabled={!crmAccess}
+                      >
+                        <SelectTrigger
+                          id="nivel_acesso_crm"
+                          className={`${selectTriggerClasses} w-full min-w-0`}
+                          aria-label="Defina o nível de acesso ao CRM"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {crmLevelOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-            ) : (
-              <div className="order-2 hidden xl:block" />
-            )}
-
-            <Card className={`order-3 xl:col-span-2 ${cardSurfaceClasses}`}>
-              <CardHeader className="pb-4">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg">Permissões e Acessos</CardTitle>
-                  <CardDescription>Defina os níveis de acesso e canais liberados para o colaborador.</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="nivel_acesso_sistema">Nível de acesso ao sistema</Label>
-                    <Select
-                      value={role}
-                      onValueChange={(value) => {
-                        const selectedRole = value as "admin" | "supervisor" | "user";
-                        setRole(selectedRole);
-                        setColaborador((current) =>
-                          current
-                            ? {
-                                ...current,
-                                admin: selectedRole === "admin",
-                                supervisor: selectedRole === "supervisor",
-                              }
-                            : current
-                        );
-                      }}
-                    >
-                      <SelectTrigger
-                        id="nivel_acesso_sistema"
-                        className={`${selectTriggerClasses} w-full min-w-0`}
-                        aria-label="Selecione o nível de acesso ao sistema"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roleOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex flex-col gap-1">
-                              <span className="font-medium">{option.label}</span>
-                              <span className="text-xs text-muted-foreground">{option.description}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="acesso_whatsapp">Acesso ao WhatsApp</Label>
-                    <Select
-                      value={wppAccess ? "sim" : "nao"}
-                      onValueChange={(value) => {
-                        setWppAccess(value === "sim");
-                      }}
-                    >
-                      <SelectTrigger
-                        id="acesso_whatsapp"
-                        className={`${selectTriggerClasses} w-full min-w-0`}
-                        aria-label="Defina se o colaborador tem acesso ao WhatsApp"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sim">Sim</SelectItem>
-                        <SelectItem value="nao">Não</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="acesso_crm">Acesso ao CRM</Label>
-                    <Select
-                      value={crmAccess ? "sim" : "nao"}
-                      onValueChange={(value) => {
-                        const hasAccess = value === "sim";
-                        setCrmAccess(hasAccess);
-                        if (!hasAccess) {
-                          setCrmAccessLevel("negado");
-                        }
-                      }}
-                    >
-                      <SelectTrigger
-                        id="acesso_crm"
-                        className={`${selectTriggerClasses} w-full min-w-0`}
-                        aria-label="Defina se o colaborador tem acesso ao CRM"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sim">Sim</SelectItem>
-                        <SelectItem value="nao">Não</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="nivel_acesso_crm">Nível de acesso CRM</Label>
-                    <Select
-                      value={crmAccessLevel}
-                      onValueChange={(value) => setCrmAccessLevel(value as CRMLevel)}
-                      disabled={!crmAccess}
-                    >
-                      <SelectTrigger
-                        id="nivel_acesso_crm"
-                        className={`${selectTriggerClasses} w-full min-w-0`}
-                        aria-label="Defina o nível de acesso ao CRM"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {crmLevelOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </form>
+            </div>
+          </form>
+        </div>
       </div>
 
       {/* Dialog de confirmação para status "Desligado" */}
