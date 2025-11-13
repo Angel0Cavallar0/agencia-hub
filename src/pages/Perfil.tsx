@@ -45,6 +45,9 @@ type PrivateDataState = typeof emptyPrivateData;
 
 type ColaboradorRow = Database["public"]["Tables"]["colaborador"]["Row"];
 type ColaboradorPrivateRow = Database["public"]["Tables"]["colaborador_private"]["Row"];
+type UserRoleRow = Database["public"]["Tables"]["user_roles"]["Row"] & {
+  has_wpp_permission?: boolean | null;
+};
 
 type EmergencyContact = {
   nome: string;
@@ -103,6 +106,7 @@ export default function Perfil() {
   const [privateData, setPrivateData] = useState<PrivateDataState>({ ...emptyPrivateData });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasWppPermission, setHasWppPermission] = useState<boolean | null>(null);
 
   const displayName = useMemo(() => {
     if (colaborador.apelido) return colaborador.apelido;
@@ -122,13 +126,14 @@ export default function Perfil() {
     return "?";
   }, [displayName]);
 
-  const statusBadges = useMemo(
-    () => [
-      { label: "Ativo", active: colaborador.colab_ativo === true },
-      { label: "Férias", active: colaborador.colab_ferias === true },
-      { label: "Afastado", active: colaborador.colab_afastado === true },
-      { label: "Desligado", active: colaborador.colab_desligado === true },
-    ],
+  const activeStatusBadges = useMemo(
+    () =>
+      [
+        { label: "Ativo", active: colaborador.colab_ativo === true },
+        { label: "Férias", active: colaborador.colab_ferias === true },
+        { label: "Afastado", active: colaborador.colab_afastado === true },
+        { label: "Desligado", active: colaborador.colab_desligado === true },
+      ].filter((badge) => badge.active),
     [colaborador.colab_afastado, colaborador.colab_ativo, colaborador.colab_desligado, colaborador.colab_ferias]
   );
 
@@ -148,11 +153,13 @@ export default function Perfil() {
       setPrivateData({ ...emptyPrivateData });
       setError("Usuário não autenticado.");
       setLoading(false);
+      setHasWppPermission(null);
       return;
     }
 
     setLoading(true);
     setError(null);
+    setHasWppPermission(null);
 
     try {
       const { data: colaboradorData, error: colaboradorError } = await supabase
@@ -169,6 +176,7 @@ export default function Perfil() {
         setColaborador({ ...emptyColaborador });
         setPrivateData({ ...emptyPrivateData });
         setError("Não encontramos um cadastro de colaborador vinculado a este usuário.");
+        setHasWppPermission(null);
         return;
       }
 
@@ -193,6 +201,21 @@ export default function Perfil() {
         admin: colaboradorRow.admin ?? null,
         supervisor: colaboradorRow.supervisor ?? null,
       });
+
+      const { data: userRolesRow, error: userRolesError } = await supabase
+        .from("user_roles")
+        .select("has_wpp_permission")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (userRolesError) {
+        await logger.warning("Erro ao buscar permissão de WhatsApp", "PROFILE_WPP_PERMISSION_ERROR", {
+          errorMessage: userRolesError.message,
+        });
+      } else {
+        const roleRow = userRolesRow as UserRoleRow | null;
+        setHasWppPermission(roleRow?.has_wpp_permission ?? null);
+      }
 
       if (colaboradorRow.id_colaborador) {
         const { data: privateRow, error: privateError } = await supabase
@@ -231,6 +254,7 @@ export default function Perfil() {
         errorMessage: loadError instanceof Error ? loadError.message : String(loadError),
       });
       setError("Não foi possível carregar suas informações. Tente novamente mais tarde.");
+      setHasWppPermission(null);
     } finally {
       setLoading(false);
     }
@@ -246,9 +270,15 @@ export default function Perfil() {
   }, [colaborador.nome, colaborador.sobrenome]);
 
   const formattedAdmission = useMemo(() => formatDate(colaborador.data_admissao), [colaborador.data_admissao]);
-  const formattedBirthday = useMemo(() => formatDate(colaborador.data_aniversario), [colaborador.data_aniversario]);
-  const formattedDeparture = useMemo(() => formatDate(colaborador.data_desligamento), [colaborador.data_desligamento]);
   const formattedPersonalBirthday = useMemo(() => formatDate(privateData.data_nascimento), [privateData.data_nascimento]);
+
+  const combinedStatusBadges = useMemo(() => {
+    const badges = [...activeStatusBadges];
+    if (hasWppPermission) {
+      badges.push({ label: "Permissão WhatsApp", active: true });
+    }
+    return badges;
+  }, [activeStatusBadges, hasWppPermission]);
 
   return (
     <Layout>
@@ -276,12 +306,6 @@ export default function Perfil() {
         ) : (
           <div className="flex flex-col gap-6">
             <Card>
-              <CardHeader className="gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle>{displayName || "Meu Perfil"}</CardTitle>
-                  <CardDescription>{formatValue(colaborador.email_corporativo || user?.email)}</CardDescription>
-                </div>
-              </CardHeader>
               <CardContent className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-20 w-20">
@@ -294,22 +318,22 @@ export default function Perfil() {
                   <div className="space-y-1">
                     <p className="text-lg font-semibold text-foreground">{displayName || "Usuário"}</p>
                     <p className="text-sm text-muted-foreground">{formatValue(colaborador.cargo)}</p>
-                    <p className="text-sm text-muted-foreground">ID do colaborador: {formatValue(colaborador.id_colaborador)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      ID do colaborador: {formatValue(colaborador.id_colaborador)}
+                    </p>
                   </div>
                 </div>
                 <div className="flex w-full flex-col gap-4 md:w-auto md:items-end">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Status</p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {statusBadges.map((badge) => (
-                        <Badge
-                          key={badge.label}
-                          variant={badge.active ? "default" : "outline"}
-                          className={badge.active ? undefined : "text-muted-foreground"}
-                        >
-                          {badge.label}
-                        </Badge>
-                      ))}
+                      {combinedStatusBadges.length > 0 ? (
+                        combinedStatusBadges.map((badge) => (
+                          <Badge key={badge.label}>{badge.label}</Badge>
+                        ))
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Nenhum status ativo registrado</span>
+                      )}
                     </div>
                   </div>
                   <div>
@@ -367,14 +391,6 @@ export default function Perfil() {
                   <div className="space-y-1">
                     <dt className="text-sm font-medium text-muted-foreground">Data de admissão</dt>
                     <dd className="text-sm font-semibold text-foreground">{formattedAdmission}</dd>
-                  </div>
-                  <div className="space-y-1">
-                    <dt className="text-sm font-medium text-muted-foreground">Aniversário corporativo</dt>
-                    <dd className="text-sm font-semibold text-foreground">{formattedBirthday}</dd>
-                  </div>
-                  <div className="space-y-1">
-                    <dt className="text-sm font-medium text-muted-foreground">Data de desligamento</dt>
-                    <dd className="text-sm font-semibold text-foreground">{formattedDeparture}</dd>
                   </div>
                 </dl>
               </CardContent>
