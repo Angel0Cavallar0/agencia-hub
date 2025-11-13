@@ -18,6 +18,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const formatarDataEntrega = (dataEntrega?: string | null) => {
+  if (!dataEntrega) {
+    return "-";
+  }
+
+  const data = new Date(dataEntrega);
+
+  if (Number.isNaN(data.getTime())) {
+    return "-";
+  }
+
+  return data.toLocaleDateString("pt-BR");
+};
+
 export default function ClickupTarefas() {
   const [tarefas, setTarefas] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -186,11 +200,7 @@ export default function ClickupTarefas() {
                   <TableCell>{tarefa.nome_colaborador}</TableCell>
                   <TableCell>{tarefa.nome_lista}</TableCell>
                   <TableCell>{tarefa.nome_pasta}</TableCell>
-                  <TableCell>
-                    {tarefa.data_entrega
-                      ? new Date(tarefa.data_entrega).toLocaleDateString("pt-BR")
-                      : "-"}
-                  </TableCell>
+                  <TableCell>{formatarDataEntrega(tarefa.data_entrega)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
