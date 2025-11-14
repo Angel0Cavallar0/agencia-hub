@@ -295,7 +295,6 @@ export type Database = {
           data_desligamento: string | null
           date_created: string | null
           email_corporativo: string | null
-          email_pessoal: string | null
           foto_url: string | null
           id_clickup: string | null
           id_colaborador: string
@@ -304,7 +303,6 @@ export type Database = {
           sobrenome: string | null
           supervisor: boolean | null
           user_id: string | null
-          whatsapp: string | null
         }
         Insert: {
           admin?: boolean | null
@@ -319,7 +317,6 @@ export type Database = {
           data_desligamento?: string | null
           date_created?: string | null
           email_corporativo?: string | null
-          email_pessoal?: string | null
           foto_url?: string | null
           id_clickup?: string | null
           id_colaborador?: string
@@ -328,7 +325,6 @@ export type Database = {
           sobrenome?: string | null
           supervisor?: boolean | null
           user_id?: string | null
-          whatsapp?: string | null
         }
         Update: {
           admin?: boolean | null
@@ -343,7 +339,6 @@ export type Database = {
           data_desligamento?: string | null
           date_created?: string | null
           email_corporativo?: string | null
-          email_pessoal?: string | null
           foto_url?: string | null
           id_clickup?: string | null
           id_colaborador?: string
@@ -352,7 +347,6 @@ export type Database = {
           sobrenome?: string | null
           supervisor?: boolean | null
           user_id?: string | null
-          whatsapp?: string | null
         }
         Relationships: []
       }
@@ -432,8 +426,10 @@ export type Database = {
       }
       informacoes_tasks_clickup: {
         Row: {
+          audiovisual: boolean | null
           data_atualizacao: string | null
           data_entrega: string | null
+          design: boolean | null
           id_colaborador_clickup: string | null
           id_lista: string | null
           id_pasta: string | null
@@ -443,12 +439,15 @@ export type Database = {
           nome_lista: string | null
           nome_pasta: string | null
           nome_subtask: string | null
+          planejamento: boolean | null
           prioridade: string | null
           status: string | null
         }
         Insert: {
+          audiovisual?: boolean | null
           data_atualizacao?: string | null
           data_entrega?: string | null
+          design?: boolean | null
           id_colaborador_clickup?: string | null
           id_lista?: string | null
           id_pasta?: string | null
@@ -458,12 +457,15 @@ export type Database = {
           nome_lista?: string | null
           nome_pasta?: string | null
           nome_subtask?: string | null
+          planejamento?: boolean | null
           prioridade?: string | null
           status?: string | null
         }
         Update: {
+          audiovisual?: boolean | null
           data_atualizacao?: string | null
           data_entrega?: string | null
+          design?: boolean | null
           id_colaborador_clickup?: string | null
           id_lista?: string | null
           id_pasta?: string | null
@@ -473,6 +475,7 @@ export type Database = {
           nome_lista?: string | null
           nome_pasta?: string | null
           nome_subtask?: string | null
+          planejamento?: boolean | null
           prioridade?: string | null
           status?: string | null
         }
@@ -499,6 +502,24 @@ export type Database = {
             referencedColumns: ["id_pasta"]
           },
         ]
+      }
+      status_clickup: {
+        Row: {
+          data_criacao: string | null
+          reg: number
+          status: string
+        }
+        Insert: {
+          data_criacao?: string | null
+          reg?: number
+          status: string
+        }
+        Update: {
+          data_criacao?: string | null
+          reg?: number
+          status?: string
+        }
+        Relationships: []
       }
       system_logs: {
         Row: {
@@ -536,21 +557,30 @@ export type Database = {
       user_roles: {
         Row: {
           created_at: string | null
+          crm_access: boolean
+          crm_access_level: Database["public"]["Enums"]["crm_access_level_enum"]
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          wpp_acess: boolean
         }
         Insert: {
           created_at?: string | null
+          crm_access?: boolean
+          crm_access_level?: Database["public"]["Enums"]["crm_access_level_enum"]
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          wpp_acess?: boolean
         }
         Update: {
           created_at?: string | null
+          crm_access?: boolean
+          crm_access_level?: Database["public"]["Enums"]["crm_access_level_enum"]
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+          wpp_acess?: boolean
         }
         Relationships: []
       }
@@ -571,6 +601,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "supervisor" | "user"
+      crm_access_level_enum:
+        | "admin"
+        | "gerente"
+        | "supervisor"
+        | "assistente"
+        | "negado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -699,6 +735,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "supervisor", "user"],
+      crm_access_level_enum: [
+        "admin",
+        "gerente",
+        "supervisor",
+        "assistente",
+        "negado",
+      ],
     },
   },
 } as const

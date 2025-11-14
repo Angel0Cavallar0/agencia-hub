@@ -16,7 +16,6 @@ const emptyColaborador = {
   apelido: "",
   cargo: "",
   email_corporativo: "",
-  whatsapp: "",
   foto_url: null as string | null,
   data_admissao: null as string | null,
   data_aniversario: null as string | null,
@@ -74,10 +73,11 @@ function parseEmergencyContact(value: ColaboradorPrivateRow["contato_emergencia"
     }
   }
 
-  if (typeof value === "object") {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    const objValue = value as { nome?: unknown; telefone?: unknown };
     return {
-      nome: typeof value.nome === "string" ? value.nome : "",
-      telefone: typeof value.telefone === "string" ? value.telefone : "",
+      nome: typeof objValue.nome === "string" ? objValue.nome : "",
+      telefone: typeof objValue.telefone === "string" ? objValue.telefone : "",
     };
   }
 
@@ -198,7 +198,6 @@ export default function Perfil() {
         apelido: colaboradorRow.apelido ?? "",
         cargo: colaboradorRow.cargo ?? "",
         email_corporativo: colaboradorRow.email_corporativo ?? "",
-        whatsapp: colaboradorRow.whatsapp ?? "",
         foto_url: colaboradorRow.foto_url ?? null,
         data_admissao: colaboradorRow.data_admissao ?? null,
         data_aniversario: colaboradorRow.data_aniversario ?? null,
@@ -213,7 +212,7 @@ export default function Perfil() {
 
       const { data: userRolesRow, error: userRolesError } = await supabase
         .from("user_roles")
-        .select("wpp_acess, crm_acess, crm_level_acess")
+        .select("wpp_acess, crm_access, crm_access_level")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -224,10 +223,10 @@ export default function Perfil() {
       } else {
         const roleRow = userRolesRow as UserRoleRow | null;
         setWppAccess(roleRow?.wpp_acess ?? null);
-        setCrmAccess(roleRow?.crm_acess ?? null);
+        setCrmAccess(roleRow?.crm_access ?? null);
 
         const normalizedCrmLevels = (() => {
-          const rawLevels = roleRow?.crm_level_acess;
+          const rawLevels = roleRow?.crm_access_level;
 
           if (!rawLevels) {
             return [];
@@ -426,10 +425,6 @@ export default function Perfil() {
                     <dd className="text-sm font-semibold text-foreground">
                       {formatValue(colaborador.email_corporativo || user?.email)}
                     </dd>
-                  </div>
-                  <div className="space-y-1">
-                    <dt className="text-sm font-medium text-muted-foreground">WhatsApp</dt>
-                    <dd className="text-sm font-semibold text-foreground">{formatValue(colaborador.whatsapp)}</dd>
                   </div>
                   <div className="space-y-1">
                     <dt className="text-sm font-medium text-muted-foreground">Data de admissão</dt>

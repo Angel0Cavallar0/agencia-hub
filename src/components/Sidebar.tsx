@@ -4,6 +4,8 @@ import {
   Users,
   UserCog,
   MousePointerClick,
+  MessageSquare,
+  Building2,
   LogOut,
   Settings,
 } from "lucide-react";
@@ -42,6 +44,11 @@ type SidebarProfile = {
   foto_url: string | null;
 };
 
+type UserPermissions = {
+  crm_access: boolean;
+  wpp_acess: boolean;
+};
+
 export function Sidebar() {
   const { user, signOut, userRole } = useAuth();
   const { logoUrl } = useTheme();
@@ -49,6 +56,10 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<SidebarProfile | null>(null);
+  const [permissions, setPermissions] = useState<UserPermissions>({
+    crm_access: false,
+    wpp_acess: false,
+  });
 
   useEffect(() => {
     let isActive = true;
@@ -57,6 +68,7 @@ export function Sidebar() {
       if (!user?.id) {
         if (isActive) {
           setProfile(null);
+          setPermissions({ crm_access: false, wpp_acess: false });
         }
         return;
       }
@@ -79,6 +91,20 @@ export function Sidebar() {
               }
             : null
         );
+      }
+
+      // Buscar permissões
+      const { data: userRoles } = await supabase
+        .from("user_roles")
+        .select("crm_access, wpp_acess")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (isActive && userRoles) {
+        setPermissions({
+          crm_access: userRoles.crm_access ?? false,
+          wpp_acess: userRoles.wpp_acess ?? false,
+        });
       }
     };
 
@@ -182,6 +208,32 @@ export function Sidebar() {
             </NavLink>
           );
         })}
+
+        {/* CRM - Condicional baseado em permissões */}
+        {permissions.crm_access && (
+          <NavLink
+            to="/crm"
+            end
+            className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+          >
+            <Building2 className="h-5 w-5" />
+            <span className="font-medium">CRM</span>
+          </NavLink>
+        )}
+
+        {/* WhatsApp - Condicional baseado em permissões */}
+        {permissions.wpp_acess && (
+          <NavLink
+            to="/whatsapp"
+            end
+            className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+          >
+            <MessageSquare className="h-5 w-5" />
+            <span className="font-medium">WhatsApp</span>
+          </NavLink>
+        )}
       </nav>
 
       {/* Footer com Logs, Configurações e Sair */}

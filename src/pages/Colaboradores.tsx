@@ -39,7 +39,6 @@ export default function Colaboradores() {
         errorDetails: error.details,
         errorHint: error.hint,
         errorCode: error.code,
-        errorStatus: error.status,
       });
       return;
     }
