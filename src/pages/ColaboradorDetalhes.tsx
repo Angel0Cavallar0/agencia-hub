@@ -95,6 +95,7 @@ export default function ColaboradorDetalhes() {
     | "admin"
     | "supervisor"
     | "foto_url"
+    | "user_id"
   >;
   type PrivateSupabaseData = Partial<ColaboradorPrivate> & {
     contato_emergencia?: string | Record<string, string> | null;
@@ -112,15 +113,22 @@ export default function ColaboradorDetalhes() {
     contato_emergencia_telefone: string;
   };
 
+  type AccessLevel = "admin" | "gerente" | "supervisor" | "assistente" | "geral";
+  type BinaryAccess = "sim" | "nao";
+
   const [colaborador, setColaborador] = useState<EditableColaborador | null>(null);
   const [privateData, setPrivateData] = useState<PrivateData | null>(null);
-  const [role, setRole] = useState<"user" | "supervisor" | "admin">("user");
+  const [role, setRole] = useState<AccessLevel>("geral");
   const [status, setStatus] = useState<"ativo" | "ferias" | "afastado" | "desligado">("ativo");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [sensitiveVisible, setSensitiveVisible] = useState(false);
   const [availablePrivateFields, setAvailablePrivateFields] = useState<string[]>([]);
   const [showDesligadoDialog, setShowDesligadoDialog] = useState(false);
+  const [userRoleRowId, setUserRoleRowId] = useState<string | null>(null);
+  const [wppAccess, setWppAccess] = useState<BinaryAccess>("nao");
+  const [crmAccess, setCrmAccess] = useState<BinaryAccess>("nao");
+  const [crmLevel, setCrmLevel] = useState<AccessLevel>("geral");
 
   const statusOptions = [
     {
@@ -152,16 +160,114 @@ export default function ColaboradorDetalhes() {
       description: "Acesso completo a todas as seções e configurações.",
     },
     {
-      value: "supervisor" as const,
-      label: "Supervisor",
-      description: "Pode acompanhar equipes e clientes designados.",
+      value: "gerente" as const,
+      label: "Gerente",
+      description: "Gerencia equipes, aprova processos e acompanha indicadores.",
     },
     {
-      value: "user" as const,
-      label: "Usuário",
-      description: "Acesso restrito às atividades do próprio colaborador.",
+      value: "supervisor" as const,
+      label: "Supervisor",
+      description: "Acompanha o desempenho da equipe e distribui atividades.",
+    },
+    {
+      value: "assistente" as const,
+      label: "Assistente",
+      description: "Atua no suporte operacional com acessos controlados.",
+    },
+    {
+      value: "geral" as const,
+      label: "Geral",
+      description: "Acesso básico apenas ao necessário para o trabalho diário.",
     },
   ];
+
+  const binaryOptions: { value: BinaryAccess; label: string }[] = [
+    { value: "sim", label: "Sim" },
+    { value: "nao", label: "Não" },
+  ];
+
+  const normalizeRole = (value: string | null | undefined): AccessLevel => {
+    switch (value) {
+      case "admin":
+      case "gerente":
+      case "supervisor":
+      case "assistente":
+      case "geral":
+        return value;
+      case "user":
+        return "geral";
+      default:
+        return "geral";
+    }
+  };
+
+  const normalizeBinary = (value: boolean | null | undefined): BinaryAccess => (value ? "sim" : "nao");
+
+  const binaryToBoolean = (value: BinaryAccess) => value === "sim";
+
+  const resetUserRoleData = (fallbackRole: AccessLevel = "geral") => {
+    setUserRoleRowId(null);
+    setRole(fallbackRole);
+    setWppAccess("nao");
+    setCrmAccess("nao");
+    setCrmLevel("geral");
+  };
+
+  const fetchUserRoleData = async (userId: string, fallbackRole: AccessLevel) => {
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("id, role, wpp_acess, crm_acess, crm_access, crm_level_acess, crm_access_level")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      await logger.error(
+        "Erro ao buscar permissões do colaborador",
+        "COLAB_USER_ROLE_FETCH_ERROR",
+        buildErrorContext(error, {
+          colaboradorId: id,
+          userId,
+        })
+      );
+      resetUserRoleData(fallbackRole);
+      return;
+    }
+
+    if (!data) {
+      resetUserRoleData(fallbackRole);
+      return;
+    }
+
+    const roleData = data as {
+      id?: string | null;
+      role?: string | null;
+      wpp_acess?: boolean | null;
+      crm_acess?: boolean | null;
+      crm_access?: boolean | null;
+      crm_level_acess?: string | null;
+      crm_access_level?: string | null;
+    };
+
+    setUserRoleRowId(roleData.id ?? null);
+    setRole(normalizeRole(roleData.role));
+    setWppAccess(normalizeBinary(roleData.wpp_acess));
+
+    const resolvedCrmAccess =
+      typeof roleData.crm_acess === "boolean"
+        ? roleData.crm_acess
+        : typeof roleData.crm_access === "boolean"
+        ? roleData.crm_access
+        : null;
+    setCrmAccess(normalizeBinary(resolvedCrmAccess));
+
+    const levelValue =
+      typeof roleData.crm_level_acess === "string" && roleData.crm_level_acess.length > 0
+        ? roleData.crm_level_acess
+        : typeof roleData.crm_access_level === "string" && roleData.crm_access_level.length > 0
+        ? roleData.crm_access_level
+        : null;
+    setCrmLevel(normalizeRole(levelValue));
+  };
 
   const cardSurfaceClasses =
     "rounded-xl border border-black/30 bg-white/90 shadow-md transition-colors dark:border-white/20 dark:bg-slate-900/70";
@@ -206,7 +312,11 @@ export default function ColaboradorDetalhes() {
     if (data) {
       const colaboradorData = data as EditableColaborador;
       setColaborador(colaboradorData);
-      setRole(colaboradorData.admin ? "admin" : colaboradorData.supervisor ? "supervisor" : "user");
+
+      const fallbackRole = normalizeRole(
+        colaboradorData.admin ? "admin" : colaboradorData.supervisor ? "supervisor" : "geral"
+      );
+      setRole(fallbackRole);
       setStatus(
         colaboradorData.colab_desligado
           ? "desligado"
@@ -218,6 +328,12 @@ export default function ColaboradorDetalhes() {
       );
       if (colaboradorData.foto_url) {
         setPhotoPreview(colaboradorData.foto_url);
+      }
+
+      if (colaboradorData.user_id) {
+        void fetchUserRoleData(colaboradorData.user_id, fallbackRole);
+      } else {
+        resetUserRoleData(fallbackRole);
       }
     }
   };
@@ -368,6 +484,73 @@ export default function ColaboradorDetalhes() {
 
       if (colaboradorError) throw colaboradorError;
 
+      if (colaborador.user_id) {
+        const userRolesPayload: Database["public"]["Tables"]["user_roles"]["Insert"] = {
+          user_id: colaborador.user_id,
+          role,
+          wpp_acess: binaryToBoolean(wppAccess),
+          crm_acess: binaryToBoolean(crmAccess),
+          crm_access: binaryToBoolean(crmAccess),
+          crm_level_acess: crmLevel,
+          crm_access_level: crmLevel,
+        };
+
+        if (userRoleRowId) {
+          userRolesPayload.id = userRoleRowId;
+        }
+
+        const {
+          data: userRoleData,
+          error: userRolesError,
+        } = await supabase
+          .from("user_roles")
+          .upsert(userRolesPayload, { onConflict: "user_id" })
+          .select("id, role, wpp_acess, crm_acess, crm_access, crm_level_acess, crm_access_level")
+          .maybeSingle();
+
+        if (userRolesError) {
+          throw userRolesError;
+        }
+
+        if (userRoleData) {
+          const updatedRoleData = userRoleData as {
+            id?: string | null;
+            role?: string | null;
+            wpp_acess?: boolean | null;
+            crm_acess?: boolean | null;
+            crm_access?: boolean | null;
+            crm_level_acess?: string | null;
+            crm_access_level?: string | null;
+          };
+
+          setUserRoleRowId(updatedRoleData.id ?? null);
+          setRole(normalizeRole(updatedRoleData.role));
+          setWppAccess(normalizeBinary(updatedRoleData.wpp_acess));
+
+          const updatedCrmAccess =
+            typeof updatedRoleData.crm_acess === "boolean"
+              ? updatedRoleData.crm_acess
+              : typeof updatedRoleData.crm_access === "boolean"
+              ? updatedRoleData.crm_access
+              : null;
+          setCrmAccess(normalizeBinary(updatedCrmAccess));
+
+          const updatedLevel =
+            typeof updatedRoleData.crm_level_acess === "string" && updatedRoleData.crm_level_acess.length > 0
+              ? updatedRoleData.crm_level_acess
+              : typeof updatedRoleData.crm_access_level === "string" && updatedRoleData.crm_access_level.length > 0
+              ? updatedRoleData.crm_access_level
+              : null;
+          setCrmLevel(normalizeRole(updatedLevel));
+        }
+      } else {
+        await logger.warning(
+          "Colaborador sem vínculo de usuário ao tentar atualizar permissões",
+          "COLAB_USER_ROLE_MISSING_USER",
+          { colaboradorId: id }
+        );
+      }
+
       if (photoFile) {
         setColaborador(updatedColaborador);
         setPhotoFile(null);
@@ -434,6 +617,9 @@ export default function ColaboradorDetalhes() {
           colaboradorId: id,
           role,
           status,
+          wppAccess,
+          crmAccess,
+          crmLevel,
           currentColaborador: colaborador,
         })
       );
@@ -842,34 +1028,116 @@ export default function ColaboradorDetalhes() {
               <div className="order-2 hidden xl:block" />
             )}
 
-            <Card className={`order-3 ${cardSurfaceClasses}`}>
-              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:space-y-0">
-                <div className="flex flex-col">
-                  <CardTitle className="text-lg">Permissões e Acessos</CardTitle>
-                  <CardDescription>Defina o nível de acesso do colaborador.</CardDescription>
-                </div>
-                <Select
-                  value={role}
-                  onValueChange={(value) => {
-                    const selectedRole = value as "admin" | "supervisor" | "user";
-                    setRole(selectedRole);
-                  }}
-                >
-                  <SelectTrigger className={selectTriggerClasses} aria-label="Selecione o nível de acesso">
-                    <SelectValue placeholder="Selecione o nível" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roleOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium">{option.label}</span>
-                          <span className="text-xs text-muted-foreground">{option.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <Card className={`order-3 xl:col-span-2 ${cardSurfaceClasses}`}>
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-lg">Permissões e Acessos</CardTitle>
+                <CardDescription>Defina como o colaborador acessa os sistemas e canais.</CardDescription>
               </CardHeader>
+              <CardContent className="pt-0">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="nivel_acesso">Nível de acesso</Label>
+                    <Select
+                      value={role}
+                      onValueChange={(value) => setRole(value as AccessLevel)}
+                    >
+                      <SelectTrigger
+                        id="nivel_acesso"
+                        className={`${selectTriggerClasses} w-full`}
+                        aria-label="Selecione o nível de acesso"
+                      >
+                        <SelectValue placeholder="Selecione o nível" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex flex-col gap-1">
+                              <span className="font-medium">{option.label}</span>
+                              <span className="text-xs text-muted-foreground">{option.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="wpp_access">Acesso WhatsApp</Label>
+                    <Select
+                      value={wppAccess}
+                      onValueChange={(value) => setWppAccess(value as BinaryAccess)}
+                    >
+                      <SelectTrigger
+                        id="wpp_access"
+                        className={`${selectTriggerClasses} w-full`}
+                        aria-label="Defina se o colaborador acessa o WhatsApp"
+                      >
+                        <SelectValue placeholder="Selecione uma opção" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {binaryOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="crm_access">Acesso CRM</Label>
+                    <Select
+                      value={crmAccess}
+                      onValueChange={(value) => {
+                        const nextValue = value as BinaryAccess;
+                        setCrmAccess(nextValue);
+                        if (nextValue === "nao") {
+                          setCrmLevel("geral");
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        id="crm_access"
+                        className={`${selectTriggerClasses} w-full`}
+                        aria-label="Defina se o colaborador acessa o CRM"
+                      >
+                        <SelectValue placeholder="Selecione uma opção" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {binaryOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="crm_level">CRM Nível</Label>
+                    <Select
+                      value={crmLevel}
+                      onValueChange={(value) => setCrmLevel(value as AccessLevel)}
+                      disabled={crmAccess === "nao"}
+                    >
+                      <SelectTrigger
+                        id="crm_level"
+                        className={`${selectTriggerClasses} w-full`}
+                        aria-label="Defina o nível de acesso ao CRM"
+                      >
+                        <SelectValue placeholder="Selecione o nível do CRM" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
             </Card>
           </div>
         </form>

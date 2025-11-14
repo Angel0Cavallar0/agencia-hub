@@ -557,8 +557,10 @@ export type Database = {
       user_roles: {
         Row: {
           created_at: string | null
-          crm_access: boolean
-          crm_access_level: Database["public"]["Enums"]["crm_access_level_enum"]
+          crm_access?: boolean
+          crm_access_level?: Database["public"]["Enums"]["crm_access_level_enum"]
+          crm_acess?: boolean
+          crm_level_acess?: Database["public"]["Enums"]["crm_access_level_enum"]
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -568,6 +570,8 @@ export type Database = {
           created_at?: string | null
           crm_access?: boolean
           crm_access_level?: Database["public"]["Enums"]["crm_access_level_enum"]
+          crm_acess?: boolean
+          crm_level_acess?: Database["public"]["Enums"]["crm_access_level_enum"]
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -577,6 +581,8 @@ export type Database = {
           created_at?: string | null
           crm_access?: boolean
           crm_access_level?: Database["public"]["Enums"]["crm_access_level_enum"]
+          crm_acess?: boolean
+          crm_level_acess?: Database["public"]["Enums"]["crm_access_level_enum"]
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
@@ -600,12 +606,13 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "supervisor" | "user"
+      app_role: "admin" | "supervisor" | "user" | "gerente" | "assistente" | "geral"
       crm_access_level_enum:
         | "admin"
         | "gerente"
         | "supervisor"
         | "assistente"
+        | "geral"
         | "negado"
     }
     CompositeTypes: {

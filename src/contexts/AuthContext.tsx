@@ -4,10 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+type AppRole = "admin" | "gerente" | "supervisor" | "assistente" | "geral" | "user";
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  userRole: "admin" | "supervisor" | "user" | null;
+  userRole: AppRole | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -18,11 +20,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [userRole, setUserRole] = useState<"admin" | "supervisor" | "user" | null>(null);
+  const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = async (userId: string): Promise<AppRole | null> => {
     const { data, error } = await supabase
       .from("user_roles")
       .select("role")
@@ -34,7 +36,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return null;
     }
 
-    return data?.role || null;
+    return (data?.role as AppRole | null) || null;
   };
 
   useEffect(() => {
