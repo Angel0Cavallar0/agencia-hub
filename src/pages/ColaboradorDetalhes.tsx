@@ -181,6 +181,10 @@ export default function ColaboradorDetalhes() {
     },
   ];
 
+  const crmRoleOptions = roleOptions.map((option) =>
+    option.value === "geral" ? { ...option, label: "Negado" } : option,
+  );
+
   const binaryOptions: { value: BinaryAccess; label: string }[] = [
     { value: "sim", label: "Sim" },
     { value: "nao", label: "Não" },
@@ -1149,7 +1153,7 @@ export default function ColaboradorDetalhes() {
                         <SelectValue placeholder="Selecione o nível do CRM" />
                       </SelectTrigger>
                       <SelectContent>
-                        {roleOptions.map((option) => (
+                        {crmRoleOptions.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
