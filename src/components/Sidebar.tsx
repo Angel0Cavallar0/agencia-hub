@@ -96,14 +96,28 @@ export function Sidebar() {
       // Buscar permissões
       const { data: userRoles } = await supabase
         .from("user_roles")
-        .select("crm_access, wpp_acess")
+        .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
 
       if (isActive && userRoles) {
+        const resolvedWppAccess =
+          typeof userRoles.wpp_acess === "boolean"
+            ? userRoles.wpp_acess
+            : typeof (userRoles as { wpp_access?: boolean }).wpp_access === "boolean"
+            ? (userRoles as { wpp_access?: boolean }).wpp_access ?? false
+            : false;
+
+        const resolvedCrmAccess =
+          typeof userRoles.crm_access === "boolean"
+            ? userRoles.crm_access
+            : typeof (userRoles as { crm_acess?: boolean }).crm_acess === "boolean"
+            ? (userRoles as { crm_acess?: boolean }).crm_acess ?? false
+            : false;
+
         setPermissions({
-          crm_access: userRoles.crm_access ?? false,
-          wpp_acess: userRoles.wpp_acess ?? false,
+          crm_access: resolvedCrmAccess,
+          wpp_acess: resolvedWppAccess,
         });
       }
     };

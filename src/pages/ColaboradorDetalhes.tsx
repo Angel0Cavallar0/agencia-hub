@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -94,6 +95,7 @@ export default function ColaboradorDetalhes() {
     | "admin"
     | "supervisor"
     | "foto_url"
+    | "user_id"
   >;
   type PrivateSupabaseData = Partial<ColaboradorPrivate> & {
     contato_emergencia?: string | Record<string, string> | null;
@@ -111,15 +113,22 @@ export default function ColaboradorDetalhes() {
     contato_emergencia_telefone: string;
   };
 
+  type AccessLevel = "admin" | "gerente" | "supervisor" | "assistente" | "geral";
+  type BinaryAccess = "sim" | "nao";
+
   const [colaborador, setColaborador] = useState<EditableColaborador | null>(null);
   const [privateData, setPrivateData] = useState<PrivateData | null>(null);
-  const [role, setRole] = useState<"user" | "supervisor" | "admin">("user");
+  const [role, setRole] = useState<AccessLevel>("geral");
   const [status, setStatus] = useState<"ativo" | "ferias" | "afastado" | "desligado">("ativo");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [sensitiveVisible, setSensitiveVisible] = useState(false);
   const [availablePrivateFields, setAvailablePrivateFields] = useState<string[]>([]);
   const [showDesligadoDialog, setShowDesligadoDialog] = useState(false);
+  const [userRoleRowId, setUserRoleRowId] = useState<string | null>(null);
+  const [wppAccess, setWppAccess] = useState<BinaryAccess>("nao");
+  const [crmAccess, setCrmAccess] = useState<BinaryAccess>("nao");
+  const [crmLevel, setCrmLevel] = useState<AccessLevel>("geral");
 
   const statusOptions = [
     {
@@ -151,16 +160,124 @@ export default function ColaboradorDetalhes() {
       description: "Acesso completo a todas as seções e configurações.",
     },
     {
-      value: "supervisor" as const,
-      label: "Supervisor",
-      description: "Pode acompanhar equipes e clientes designados.",
+      value: "gerente" as const,
+      label: "Gerente",
+      description: "Gerencia equipes, aprova processos e acompanha indicadores.",
     },
     {
-      value: "user" as const,
-      label: "Usuário",
-      description: "Acesso restrito às atividades do próprio colaborador.",
+      value: "supervisor" as const,
+      label: "Supervisor",
+      description: "Acompanha o desempenho da equipe e distribui atividades.",
+    },
+    {
+      value: "assistente" as const,
+      label: "Assistente",
+      description: "Atua no suporte operacional com acessos controlados.",
+    },
+    {
+      value: "geral" as const,
+      label: "Geral",
+      description: "Acesso básico apenas ao necessário para o trabalho diário.",
     },
   ];
+
+  const binaryOptions: { value: BinaryAccess; label: string }[] = [
+    { value: "sim", label: "Sim" },
+    { value: "nao", label: "Não" },
+  ];
+
+  const normalizeRole = (value: string | null | undefined): AccessLevel => {
+    switch (value) {
+      case "admin":
+      case "gerente":
+      case "supervisor":
+      case "assistente":
+      case "geral":
+        return value;
+      case "user":
+        return "geral";
+      default:
+        return "geral";
+    }
+  };
+
+  const normalizeBinary = (value: boolean | null | undefined): BinaryAccess => (value ? "sim" : "nao");
+
+  const binaryToBoolean = (value: BinaryAccess) => value === "sim";
+
+  const resetUserRoleData = (fallbackRole: AccessLevel = "geral") => {
+    setUserRoleRowId(null);
+    setRole(fallbackRole);
+    setWppAccess("nao");
+    setCrmAccess("nao");
+    setCrmLevel("geral");
+  };
+
+  const fetchUserRoleData = async (userId: string, fallbackRole: AccessLevel) => {
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      await logger.error(
+        "Erro ao buscar permissões do colaborador",
+        "COLAB_USER_ROLE_FETCH_ERROR",
+        buildErrorContext(error, {
+          colaboradorId: id,
+          userId,
+        })
+      );
+      resetUserRoleData(fallbackRole);
+      return;
+    }
+
+    if (!data) {
+      resetUserRoleData(fallbackRole);
+      return;
+    }
+
+    const roleData = data as {
+      id?: string | null;
+      role?: string | null;
+      wpp_acess?: boolean | null;
+      wpp_access?: boolean | null;
+      crm_access?: boolean | null;
+      crm_acess?: boolean | null;
+      crm_access_level?: string | null;
+      crm_level_access?: string | null;
+      crm_level_acess?: string | null;
+    };
+
+    setUserRoleRowId(roleData.id ?? null);
+    setRole(normalizeRole(roleData.role));
+    const resolvedWppAccess =
+      typeof roleData.wpp_acess === "boolean"
+        ? roleData.wpp_acess
+        : typeof roleData.wpp_access === "boolean"
+        ? roleData.wpp_access
+        : null;
+    setWppAccess(normalizeBinary(resolvedWppAccess));
+
+    const resolvedCrmAccess =
+      typeof roleData.crm_access === "boolean"
+        ? roleData.crm_access
+        : typeof roleData.crm_acess === "boolean"
+        ? roleData.crm_acess
+        : null;
+    setCrmAccess(normalizeBinary(resolvedCrmAccess));
+
+    const levelValue =
+      typeof roleData.crm_access_level === "string" && roleData.crm_access_level.length > 0
+        ? roleData.crm_access_level
+        : typeof roleData.crm_level_access === "string" && roleData.crm_level_access.length > 0
+        ? roleData.crm_level_access
+        : typeof roleData.crm_level_acess === "string" && roleData.crm_level_acess.length > 0
+        ? roleData.crm_level_acess
+        : null;
+    setCrmLevel(normalizeRole(levelValue));
+  };
 
   const cardSurfaceClasses =
     "rounded-xl border border-black/30 bg-white/90 shadow-md transition-colors dark:border-white/20 dark:bg-slate-900/70";
@@ -205,7 +322,11 @@ export default function ColaboradorDetalhes() {
     if (data) {
       const colaboradorData = data as EditableColaborador;
       setColaborador(colaboradorData);
-      setRole(colaboradorData.admin ? "admin" : colaboradorData.supervisor ? "supervisor" : "user");
+
+      const fallbackRole = normalizeRole(
+        colaboradorData.admin ? "admin" : colaboradorData.supervisor ? "supervisor" : "geral"
+      );
+      setRole(fallbackRole);
       setStatus(
         colaboradorData.colab_desligado
           ? "desligado"
@@ -217,6 +338,12 @@ export default function ColaboradorDetalhes() {
       );
       if (colaboradorData.foto_url) {
         setPhotoPreview(colaboradorData.foto_url);
+      }
+
+      if (colaboradorData.user_id) {
+        void fetchUserRoleData(colaboradorData.user_id, fallbackRole);
+      } else {
+        resetUserRoleData(fallbackRole);
       }
     }
   };
@@ -367,6 +494,84 @@ export default function ColaboradorDetalhes() {
 
       if (colaboradorError) throw colaboradorError;
 
+      if (colaborador.user_id) {
+        const userRolesPayload: Database["public"]["Tables"]["user_roles"]["Insert"] = {
+          user_id: colaborador.user_id,
+          role,
+          crm_access: binaryToBoolean(crmAccess),
+          crm_access_level: crmLevel,
+          wpp_acess: binaryToBoolean(wppAccess),
+        };
+
+        if (userRoleRowId) {
+          userRolesPayload.id = userRoleRowId;
+        }
+
+        const {
+          data: userRoleData,
+          error: userRolesError,
+        } = await supabase
+          .from("user_roles")
+          .upsert(userRolesPayload, { onConflict: "user_id" })
+          .select("*")
+          .maybeSingle();
+
+        if (userRolesError) {
+          throw userRolesError;
+        }
+
+        if (userRoleData) {
+          const updatedRoleData = userRoleData as {
+            id?: string | null;
+            role?: string | null;
+            wpp_acess?: boolean | null;
+            wpp_access?: boolean | null;
+            crm_access?: boolean | null;
+            crm_acess?: boolean | null;
+            crm_access_level?: string | null;
+            crm_level_access?: string | null;
+            crm_level_acess?: string | null;
+          };
+
+          setUserRoleRowId(updatedRoleData.id ?? null);
+          setRole(normalizeRole(updatedRoleData.role));
+          const updatedWppAccess =
+            typeof updatedRoleData.wpp_acess === "boolean"
+              ? updatedRoleData.wpp_acess
+              : typeof updatedRoleData.wpp_access === "boolean"
+              ? updatedRoleData.wpp_access
+              : null;
+          setWppAccess(normalizeBinary(updatedWppAccess));
+
+          const updatedCrmAccess =
+            typeof updatedRoleData.crm_access === "boolean"
+              ? updatedRoleData.crm_access
+              : typeof updatedRoleData.crm_acess === "boolean"
+              ? updatedRoleData.crm_acess
+              : null;
+          setCrmAccess(normalizeBinary(updatedCrmAccess));
+
+          const updatedLevel =
+            typeof updatedRoleData.crm_access_level === "string" &&
+            updatedRoleData.crm_access_level.length > 0
+              ? updatedRoleData.crm_access_level
+              : typeof updatedRoleData.crm_level_access === "string" &&
+                updatedRoleData.crm_level_access.length > 0
+              ? updatedRoleData.crm_level_access
+              : typeof updatedRoleData.crm_level_acess === "string" &&
+                updatedRoleData.crm_level_acess.length > 0
+              ? updatedRoleData.crm_level_acess
+              : null;
+          setCrmLevel(normalizeRole(updatedLevel));
+        }
+      } else {
+        await logger.warning(
+          "Colaborador sem vínculo de usuário ao tentar atualizar permissões",
+          "COLAB_USER_ROLE_MISSING_USER",
+          { colaboradorId: id }
+        );
+      }
+
       if (photoFile) {
         setColaborador(updatedColaborador);
         setPhotoFile(null);
@@ -433,6 +638,9 @@ export default function ColaboradorDetalhes() {
           colaboradorId: id,
           role,
           status,
+          wppAccess,
+          crmAccess,
+          crmLevel,
           currentColaborador: colaborador,
         })
       );
@@ -487,151 +695,203 @@ export default function ColaboradorDetalhes() {
                   Informações Principais
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-col gap-6 lg:flex-row">
-                <div className="flex w-full max-w-[180px] flex-col items-center gap-4">
-                  <div
-                    className="flex h-36 w-36 items-center justify-center rounded-full bg-emerald-800 text-lg font-semibold uppercase tracking-wide text-white"
-                    style={
-                      photoPreview
-                        ? {
-                            backgroundImage: `url(${photoPreview})`,
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
-                          }
-                        : undefined
-                    }
-                  >
-                    {!photoPreview && "foto"}
-                  </div>
-                  <div>
-                    <input
-                      id="foto_colaborador"
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoChange}
-                      className="hidden"
-                    />
-                    <Button
-                      type="button"
-                      onClick={() =>
-                        document.getElementById("foto_colaborador")?.click()
+              <CardContent className="flex flex-col gap-6">
+                <div className="flex flex-col gap-6 lg:flex-row">
+                  <div className="flex w-full max-w-[180px] flex-col items-center gap-4">
+                    <div
+                      className="flex h-36 w-36 items-center justify-center rounded-full bg-emerald-800 text-lg font-semibold uppercase tracking-wide text-white"
+                      style={
+                        photoPreview
+                          ? {
+                              backgroundImage: `url(${photoPreview})`,
+                              backgroundSize: "cover",
+                              backgroundPosition: "center",
+                            }
+                          : undefined
                       }
-                      className="h-8 rounded-full bg-emerald-800 px-4 text-xs font-semibold tracking-wide text-white hover:bg-emerald-900"
                     >
-                      ALTERAR FOTO
-                    </Button>
+                      {!photoPreview && "foto"}
+                    </div>
+                    <div>
+                      <input
+                        id="foto_colaborador"
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() =>
+                          document.getElementById("foto_colaborador")?.click()
+                        }
+                        className="h-8 rounded-full bg-emerald-800 px-4 text-xs font-semibold tracking-wide text-white hover:bg-emerald-900"
+                      >
+                        ALTERAR FOTO
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid flex-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="nome">Nome *</Label>
+                      <Input
+                        id="nome"
+                        required
+                        value={colaborador.nome || ""}
+                        className={inputSurfaceClasses}
+                        onChange={(e) =>
+                          setColaborador({ ...colaborador, nome: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sobrenome">Sobrenome</Label>
+                      <Input
+                        id="sobrenome"
+                        value={colaborador.sobrenome || ""}
+                        className={inputSurfaceClasses}
+                        onChange={(e) =>
+                          setColaborador({
+                            ...colaborador,
+                            sobrenome: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="apelido">Apelido</Label>
+                      <Input
+                        id="apelido"
+                        value={colaborador.apelido || ""}
+                        className={inputSurfaceClasses}
+                        onChange={(e) =>
+                          setColaborador({ ...colaborador, apelido: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="id_colaborador">ID Colaborador</Label>
+                      <Input
+                        id="id_colaborador"
+                        value={colaborador.id_colaborador || ""}
+                        className={inputSurfaceClasses}
+                        readOnly
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cargo">Cargo</Label>
+                      <Input
+                        id="cargo"
+                        value={colaborador.cargo || ""}
+                        className={inputSurfaceClasses}
+                        onChange={(e) =>
+                          setColaborador({ ...colaborador, cargo: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="data_admissao">Data de Contratação</Label>
+                      <Input
+                        id="data_admissao"
+                        type="date"
+                        value={colaborador.data_admissao || ""}
+                        className={inputSurfaceClasses}
+                        onChange={(e) =>
+                          setColaborador({
+                            ...colaborador,
+                            data_admissao: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="email_corporativo">E-mail Corporativo</Label>
+                      <Input
+                        id="email_corporativo"
+                        type="email"
+                        value={colaborador.email_corporativo || ""}
+                        className={`md:max-w-xl ${inputSurfaceClasses}`}
+                        onChange={(e) =>
+                          setColaborador({
+                            ...colaborador,
+                            email_corporativo: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="id_clickup">ID ClickUp</Label>
+                      <Input
+                        id="id_clickup"
+                        value={colaborador.id_clickup || ""}
+                        className={inputSurfaceClasses}
+                        onChange={(e) =>
+                          setColaborador({ ...colaborador, id_clickup: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="id_slack">ID Slack</Label>
+                      <Input
+                        id="id_slack"
+                        value={colaborador.id_slack || ""}
+                        className={inputSurfaceClasses}
+                        onChange={(e) =>
+                          setColaborador({ ...colaborador, id_slack: e.target.value })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="grid flex-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="nome">Nome *</Label>
-                    <Input
-                      id="nome"
-                      required
-                      value={colaborador.nome || ""}
-                      className={inputSurfaceClasses}
-                      onChange={(e) =>
-                        setColaborador({ ...colaborador, nome: e.target.value })
+                <Separator className="border-muted-foreground/20" />
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col">
+                    <p className="text-base font-semibold text-foreground">
+                      Status do Colaborador
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Controle o status atual do colaborador.
+                    </p>
+                  </div>
+                  <Select
+                    value={status}
+                    onValueChange={(value) => {
+                      const selectedStatus = value as "ativo" | "ferias" | "afastado" | "desligado";
+
+                      if (selectedStatus === "desligado") {
+                        setShowDesligadoDialog(true);
+                        return;
                       }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sobrenome">Sobrenome</Label>
-                    <Input
-                      id="sobrenome"
-                      value={colaborador.sobrenome || ""}
-                      className={inputSurfaceClasses}
-                      onChange={(e) =>
-                        setColaborador({
-                          ...colaborador,
-                          sobrenome: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="apelido">Apelido</Label>
-                    <Input
-                      id="apelido"
-                      value={colaborador.apelido || ""}
-                      className={inputSurfaceClasses}
-                      onChange={(e) =>
-                        setColaborador({ ...colaborador, apelido: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="id_colaborador">ID Colaborador</Label>
-                    <Input
-                      id="id_colaborador"
-                      value={colaborador.id_colaborador || ""}
-                      className={inputSurfaceClasses}
-                      readOnly
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cargo">Cargo</Label>
-                    <Input
-                      id="cargo"
-                      value={colaborador.cargo || ""}
-                      className={inputSurfaceClasses}
-                      onChange={(e) =>
-                        setColaborador({ ...colaborador, cargo: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="data_admissao">Data de Contratação</Label>
-                    <Input
-                      id="data_admissao"
-                      type="date"
-                      value={colaborador.data_admissao || ""}
-                      className={inputSurfaceClasses}
-                      onChange={(e) =>
-                        setColaborador({
-                          ...colaborador,
-                          data_admissao: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="email_corporativo">E-mail Corporativo</Label>
-                    <Input
-                      id="email_corporativo"
-                      type="email"
-                      value={colaborador.email_corporativo || ""}
-                      className={`md:max-w-xl ${inputSurfaceClasses}`}
-                      onChange={(e) =>
-                        setColaborador({
-                          ...colaborador,
-                          email_corporativo: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="id_clickup">ID ClickUp</Label>
-                    <Input
-                      id="id_clickup"
-                      value={colaborador.id_clickup || ""}
-                      className={inputSurfaceClasses}
-                      onChange={(e) =>
-                        setColaborador({ ...colaborador, id_clickup: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="id_slack">ID Slack</Label>
-                    <Input
-                      id="id_slack"
-                      value={colaborador.id_slack || ""}
-                      className={inputSurfaceClasses}
-                      onChange={(e) =>
-                        setColaborador({ ...colaborador, id_slack: e.target.value })
-                      }
-                    />
-                  </div>
+
+                      setStatus(selectedStatus);
+                      setColaborador({
+                        ...colaborador,
+                        colab_ativo: selectedStatus === "ativo",
+                        colab_ferias: selectedStatus === "ferias",
+                        colab_afastado: selectedStatus === "afastado",
+                        colab_desligado: false,
+                      });
+                    }}
+                  >
+                    <SelectTrigger
+                      aria-label="Selecione o status do colaborador"
+                      className={selectTriggerClasses}
+                    >
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex flex-col gap-1">
+                            <span className="font-medium">{option.label}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {option.description}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
@@ -789,83 +1049,116 @@ export default function ColaboradorDetalhes() {
               <div className="order-2 hidden xl:block" />
             )}
 
-            <Card className={`order-3 ${cardSurfaceClasses}`}>
-              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:space-y-0">
-                <div className="flex flex-col">
-                  <CardTitle className="text-lg">Status do Colaborador</CardTitle>
-                  <CardDescription>Controle o status atual do colaborador.</CardDescription>
-                </div>
-                <Select
-                  value={status}
-                  onValueChange={(value) => {
-                    const selectedStatus = value as "ativo" | "ferias" | "afastado" | "desligado";
-                    
-                    // Se está marcando como desligado, mostra diálogo de confirmação
-                    if (selectedStatus === "desligado") {
-                      setShowDesligadoDialog(true);
-                      return;
-                    }
-                    
-                    setStatus(selectedStatus);
-                    setColaborador({
-                      ...colaborador,
-                      colab_ativo: selectedStatus === "ativo",
-                      colab_ferias: selectedStatus === "ferias",
-                      colab_afastado: selectedStatus === "afastado",
-                      colab_desligado: false,
-                    });
-                  }}
-                >
-                  <SelectTrigger
-                    aria-label="Selecione o status do colaborador"
-                    className={selectTriggerClasses}
-                  >
-                    <SelectValue placeholder="Selecione o status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium">{option.label}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {option.description}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <Card className={`order-3 xl:col-span-2 ${cardSurfaceClasses}`}>
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-lg">Permissões e Acessos</CardTitle>
+                <CardDescription>Defina como o colaborador acessa os sistemas e canais.</CardDescription>
               </CardHeader>
-            </Card>
+              <CardContent className="pt-0">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="nivel_acesso">Nível de acesso</Label>
+                    <Select
+                      value={role}
+                      onValueChange={(value) => setRole(value as AccessLevel)}
+                    >
+                      <SelectTrigger
+                        id="nivel_acesso"
+                        className={`${selectTriggerClasses} w-full`}
+                        aria-label="Selecione o nível de acesso"
+                      >
+                        <SelectValue placeholder="Selecione o nível" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex flex-col gap-1">
+                              <span className="font-medium">{option.label}</span>
+                              <span className="text-xs text-muted-foreground">{option.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            <Card className={`order-4 ${cardSurfaceClasses}`}>
-              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:space-y-0">
-                <div className="flex flex-col">
-                  <CardTitle className="text-lg">Permissões e Acessos</CardTitle>
-                  <CardDescription>Defina o nível de acesso do colaborador.</CardDescription>
+                  <div className="space-y-2">
+                    <Label htmlFor="wpp_acess">Acesso WhatsApp</Label>
+                    <Select
+                      value={wppAccess}
+                      onValueChange={(value) => setWppAccess(value as BinaryAccess)}
+                    >
+                      <SelectTrigger
+                        id="wpp_acess"
+                        className={`${selectTriggerClasses} w-full`}
+                        aria-label="Defina se o colaborador acessa o WhatsApp"
+                      >
+                        <SelectValue placeholder="Selecione uma opção" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {binaryOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="crm_access">Acesso CRM</Label>
+                    <Select
+                      value={crmAccess}
+                      onValueChange={(value) => {
+                        const nextValue = value as BinaryAccess;
+                        setCrmAccess(nextValue);
+                        if (nextValue === "nao") {
+                          setCrmLevel("geral");
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        id="crm_access"
+                        className={`${selectTriggerClasses} w-full`}
+                        aria-label="Defina se o colaborador acessa o CRM"
+                      >
+                        <SelectValue placeholder="Selecione uma opção" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {binaryOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="crm_level">CRM Nível</Label>
+                    <Select
+                      value={crmLevel}
+                      onValueChange={(value) => setCrmLevel(value as AccessLevel)}
+                      disabled={crmAccess === "nao"}
+                    >
+                      <SelectTrigger
+                        id="crm_level"
+                        className={`${selectTriggerClasses} w-full`}
+                        aria-label="Defina o nível de acesso ao CRM"
+                      >
+                        <SelectValue placeholder="Selecione o nível do CRM" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <Select
-                  value={role}
-                  onValueChange={(value) => {
-                    const selectedRole = value as "admin" | "supervisor" | "user";
-                    setRole(selectedRole);
-                  }}
-                >
-                  <SelectTrigger className={selectTriggerClasses} aria-label="Selecione o nível de acesso">
-                    <SelectValue placeholder="Selecione o nível" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roleOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium">{option.label}</span>
-                          <span className="text-xs text-muted-foreground">{option.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardHeader>
+              </CardContent>
             </Card>
           </div>
         </form>
