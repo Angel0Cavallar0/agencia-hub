@@ -2,9 +2,17 @@ import { ChangeEvent, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -75,7 +83,7 @@ type ColaboradorPrivate = Database["public"]["Tables"]["colaborador_private"]["R
 export default function ColaboradorDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const [loading, setLoading] = useState(false);
   type EditableColaborador = Pick<
     Colaborador,
@@ -130,6 +138,10 @@ export default function ColaboradorDetalhes() {
   const [wppAccess, setWppAccess] = useState<BinaryAccess>("nao");
   const [crmAccess, setCrmAccess] = useState<BinaryAccess>("nao");
   const [crmLevel, setCrmLevel] = useState<CrmAccessLevel>("negado");
+  const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false);
+  const [permissionPassword, setPermissionPassword] = useState("");
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [isSavingPermissions, setIsSavingPermissions] = useState(false);
 
   const statusOptions = [
     {
@@ -295,6 +307,91 @@ export default function ColaboradorDetalhes() {
         ? roleData.crm_level_acess
         : null;
     setCrmLevel(normalizeCrmLevel(levelValue));
+  };
+
+  const upsertUserRoles = async () => {
+    if (!colaborador) {
+      throw new Error("Colaborador não encontrado");
+    }
+
+    if (!colaborador.user_id) {
+      await logger.warning(
+        "Colaborador sem vínculo de usuário ao tentar atualizar permissões",
+        "COLAB_USER_ROLE_MISSING_USER",
+        { colaboradorId: id },
+      );
+      return;
+    }
+
+    const userRolesPayload: Database["public"]["Tables"]["user_roles"]["Insert"] = {
+      user_id: colaborador.user_id,
+      role,
+      crm_access: binaryToBoolean(crmAccess),
+      crm_access_level: crmLevel,
+      wpp_acess: binaryToBoolean(wppAccess),
+    };
+
+    if (userRoleRowId) {
+      userRolesPayload.id = userRoleRowId;
+    }
+
+    const {
+      data: userRoleData,
+      error: userRolesError,
+    } = await supabase
+      .from("user_roles")
+      .upsert(userRolesPayload, { onConflict: "user_id" })
+      .select("*")
+      .maybeSingle();
+
+    if (userRolesError) {
+      throw userRolesError;
+    }
+
+    if (userRoleData) {
+      const updatedRoleData = userRoleData as {
+        id?: string | null;
+        role?: string | null;
+        wpp_acess?: boolean | null;
+        wpp_access?: boolean | null;
+        crm_access?: boolean | null;
+        crm_acess?: boolean | null;
+        crm_access_level?: string | null;
+        crm_level_access?: string | null;
+        crm_level_acess?: string | null;
+      };
+
+      setUserRoleRowId(updatedRoleData.id ?? null);
+      setRole(normalizeRole(updatedRoleData.role));
+      const updatedWppAccess =
+        typeof updatedRoleData.wpp_acess === "boolean"
+          ? updatedRoleData.wpp_acess
+          : typeof updatedRoleData.wpp_access === "boolean"
+          ? updatedRoleData.wpp_access
+          : null;
+      setWppAccess(normalizeBinary(updatedWppAccess));
+
+      const updatedCrmAccess =
+        typeof updatedRoleData.crm_access === "boolean"
+          ? updatedRoleData.crm_access
+          : typeof updatedRoleData.crm_acess === "boolean"
+          ? updatedRoleData.crm_acess
+          : null;
+      setCrmAccess(normalizeBinary(updatedCrmAccess));
+
+      const updatedLevel =
+        typeof updatedRoleData.crm_access_level === "string" &&
+        updatedRoleData.crm_access_level.length > 0
+          ? updatedRoleData.crm_access_level
+          : typeof updatedRoleData.crm_level_access === "string" &&
+            updatedRoleData.crm_level_access.length > 0
+          ? updatedRoleData.crm_level_access
+          : typeof updatedRoleData.crm_level_acess === "string" &&
+            updatedRoleData.crm_level_acess.length > 0
+          ? updatedRoleData.crm_level_acess
+          : null;
+      setCrmLevel(normalizeCrmLevel(updatedLevel));
+    }
   };
 
   const cardSurfaceClasses =
@@ -473,6 +570,8 @@ export default function ColaboradorDetalhes() {
       const updatedColaborador: EditableColaborador = {
         ...colaborador,
         foto_url: updatedFotoUrl,
+        admin: role === "admin",
+        supervisor: role === "supervisor",
       };
 
       const allowedFields = [
@@ -511,84 +610,7 @@ export default function ColaboradorDetalhes() {
         .eq("id_colaborador", id);
 
       if (colaboradorError) throw colaboradorError;
-
-      if (colaborador.user_id) {
-        const userRolesPayload: Database["public"]["Tables"]["user_roles"]["Insert"] = {
-          user_id: colaborador.user_id,
-          role,
-          crm_access: binaryToBoolean(crmAccess),
-          crm_access_level: crmLevel,
-          wpp_acess: binaryToBoolean(wppAccess),
-        };
-
-        if (userRoleRowId) {
-          userRolesPayload.id = userRoleRowId;
-        }
-
-        const {
-          data: userRoleData,
-          error: userRolesError,
-        } = await supabase
-          .from("user_roles")
-          .upsert(userRolesPayload, { onConflict: "user_id" })
-          .select("*")
-          .maybeSingle();
-
-        if (userRolesError) {
-          throw userRolesError;
-        }
-
-        if (userRoleData) {
-          const updatedRoleData = userRoleData as {
-            id?: string | null;
-            role?: string | null;
-            wpp_acess?: boolean | null;
-            wpp_access?: boolean | null;
-            crm_access?: boolean | null;
-            crm_acess?: boolean | null;
-            crm_access_level?: string | null;
-            crm_level_access?: string | null;
-            crm_level_acess?: string | null;
-          };
-
-          setUserRoleRowId(updatedRoleData.id ?? null);
-          setRole(normalizeRole(updatedRoleData.role));
-          const updatedWppAccess =
-            typeof updatedRoleData.wpp_acess === "boolean"
-              ? updatedRoleData.wpp_acess
-              : typeof updatedRoleData.wpp_access === "boolean"
-              ? updatedRoleData.wpp_access
-              : null;
-          setWppAccess(normalizeBinary(updatedWppAccess));
-
-          const updatedCrmAccess =
-            typeof updatedRoleData.crm_access === "boolean"
-              ? updatedRoleData.crm_access
-              : typeof updatedRoleData.crm_acess === "boolean"
-              ? updatedRoleData.crm_acess
-              : null;
-          setCrmAccess(normalizeBinary(updatedCrmAccess));
-
-          const updatedLevel =
-            typeof updatedRoleData.crm_access_level === "string" &&
-            updatedRoleData.crm_access_level.length > 0
-              ? updatedRoleData.crm_access_level
-              : typeof updatedRoleData.crm_level_access === "string" &&
-                updatedRoleData.crm_level_access.length > 0
-              ? updatedRoleData.crm_level_access
-              : typeof updatedRoleData.crm_level_acess === "string" &&
-                updatedRoleData.crm_level_acess.length > 0
-              ? updatedRoleData.crm_level_acess
-              : null;
-          setCrmLevel(normalizeCrmLevel(updatedLevel));
-        }
-      } else {
-        await logger.warning(
-          "Colaborador sem vínculo de usuário ao tentar atualizar permissões",
-          "COLAB_USER_ROLE_MISSING_USER",
-          { colaboradorId: id }
-        );
-      }
+      await upsertUserRoles();
 
       if (photoFile) {
         setColaborador(updatedColaborador);
@@ -671,6 +693,99 @@ export default function ColaboradorDetalhes() {
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
     setPhotoFile(file);
+  };
+
+  const handlePermissionDialogChange = (open: boolean) => {
+    setIsPermissionDialogOpen(open);
+    if (!open) {
+      setPermissionPassword("");
+      setPermissionError(null);
+      setIsSavingPermissions(false);
+    }
+  };
+
+  const handleConfirmPermissionSave = async () => {
+    if (!colaborador || !id) {
+      setPermissionError("Colaborador não encontrado.");
+      return;
+    }
+
+    if (!user?.email) {
+      setPermissionError("Não foi possível validar o usuário logado.");
+      return;
+    }
+
+    if (!permissionPassword) {
+      setPermissionError("Informe sua senha para confirmar.");
+      return;
+    }
+
+    setIsSavingPermissions(true);
+    setPermissionError(null);
+
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: permissionPassword,
+      });
+
+      if (authError) {
+        throw authError;
+      }
+
+      const { error: permissionUpdateError } = await supabase
+        .from("colaborador")
+        .update({
+          admin: role === "admin",
+          supervisor: role === "supervisor",
+        })
+        .eq("id_colaborador", id);
+
+      if (permissionUpdateError) {
+        throw permissionUpdateError;
+      }
+
+      await upsertUserRoles();
+
+      setColaborador((current) =>
+        current
+          ? {
+              ...current,
+              admin: role === "admin",
+              supervisor: role === "supervisor",
+            }
+          : current,
+      );
+
+      toast.success("Permissões atualizadas com sucesso!");
+      handlePermissionDialogChange(false);
+    } catch (error: any) {
+      const rawMessage = typeof error?.message === "string" ? error.message : null;
+      const isInvalidPassword =
+        rawMessage?.toLowerCase().includes("invalid login credentials") ?? false;
+      const displayMessage = isInvalidPassword
+        ? "Senha incorreta. Tente novamente."
+        : rawMessage || "Não foi possível salvar as permissões.";
+
+      setPermissionError(displayMessage);
+
+      if (!isInvalidPassword) {
+        await logger.error(
+          "Erro ao salvar permissões do colaborador",
+          "COLAB_PERMISSION_SAVE_ERROR",
+          buildErrorContext(error, {
+            colaboradorId: id,
+            role,
+            wppAccess,
+            crmAccess,
+            crmLevel,
+          }),
+        );
+        toast.error(displayMessage);
+      }
+    } finally {
+      setIsSavingPermissions(false);
+    }
   };
 
   if (!colaborador) {
@@ -1068,9 +1183,22 @@ export default function ColaboradorDetalhes() {
             )}
 
             <Card className={`order-3 xl:col-span-2 ${cardSurfaceClasses}`}>
-              <CardHeader className="space-y-1">
-                <CardTitle className="text-lg">Permissões e Acessos</CardTitle>
-                <CardDescription>Defina como o colaborador acessa os sistemas e canais.</CardDescription>
+              <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg">Permissões e Acessos</CardTitle>
+                  <CardDescription>Defina como o colaborador acessa os sistemas e canais.</CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  className="w-full sm:ml-auto sm:w-auto"
+                  onClick={() => {
+                    setPermissionPassword("");
+                    setPermissionError(null);
+                    setIsPermissionDialogOpen(true);
+                  }}
+                >
+                  Salvar Permissões
+                </Button>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="grid gap-6 md:grid-cols-2">
@@ -1181,6 +1309,48 @@ export default function ColaboradorDetalhes() {
           </div>
         </form>
       </div>
+
+      <Dialog open={isPermissionDialogOpen} onOpenChange={handlePermissionDialogChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar salvamento</DialogTitle>
+            <DialogDescription>
+              Confirme sua senha para salvar as permissões do colaborador.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="permission-password">Senha</Label>
+            <Input
+              id="permission-password"
+              type="password"
+              value={permissionPassword}
+              onChange={(event) => setPermissionPassword(event.target.value)}
+              autoComplete="current-password"
+              placeholder="Digite sua senha"
+            />
+            {permissionError && (
+              <p className="text-sm text-destructive">{permissionError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handlePermissionDialogChange(false)}
+              disabled={isSavingPermissions}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmPermissionSave}
+              disabled={isSavingPermissions || permissionPassword.length === 0}
+            >
+              {isSavingPermissions ? "Salvando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog de confirmação para status "Desligado" */}
       <AlertDialog open={showDesligadoDialog} onOpenChange={setShowDesligadoDialog}>
