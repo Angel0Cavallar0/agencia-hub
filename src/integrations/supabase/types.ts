@@ -559,7 +559,6 @@ export type Database = {
           created_at: string | null
           crm_access?: boolean
           crm_access_level?: Database["public"]["Enums"]["crm_access_level_enum"]
-          crm_level_access?: Database["public"]["Enums"]["crm_access_level_enum"]
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -569,7 +568,6 @@ export type Database = {
           created_at?: string | null
           crm_access?: boolean
           crm_access_level?: Database["public"]["Enums"]["crm_access_level_enum"]
-          crm_level_access?: Database["public"]["Enums"]["crm_access_level_enum"]
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -579,7 +577,6 @@ export type Database = {
           created_at?: string | null
           crm_access?: boolean
           crm_access_level?: Database["public"]["Enums"]["crm_access_level_enum"]
-          crm_level_access?: Database["public"]["Enums"]["crm_access_level_enum"]
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string

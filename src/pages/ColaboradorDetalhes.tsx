@@ -245,9 +245,9 @@ export default function ColaboradorDetalhes() {
       wpp_acess?: boolean | null;
       crm_access?: boolean | null;
       crm_acess?: boolean | null;
+      crm_access_level?: string | null;
       crm_level_access?: string | null;
       crm_level_acess?: string | null;
-      crm_access_level?: string | null;
     };
 
     setUserRoleRowId(roleData.id ?? null);
@@ -269,12 +269,12 @@ export default function ColaboradorDetalhes() {
     setCrmAccess(normalizeBinary(resolvedCrmAccess));
 
     const levelValue =
-      typeof roleData.crm_level_access === "string" && roleData.crm_level_access.length > 0
+      typeof roleData.crm_access_level === "string" && roleData.crm_access_level.length > 0
+        ? roleData.crm_access_level
+        : typeof roleData.crm_level_access === "string" && roleData.crm_level_access.length > 0
         ? roleData.crm_level_access
         : typeof roleData.crm_level_acess === "string" && roleData.crm_level_acess.length > 0
         ? roleData.crm_level_acess
-        : typeof roleData.crm_access_level === "string" && roleData.crm_access_level.length > 0
-        ? roleData.crm_access_level
         : null;
     setCrmLevel(normalizeRole(levelValue));
   };
@@ -499,7 +499,7 @@ export default function ColaboradorDetalhes() {
           user_id: colaborador.user_id,
           role,
           crm_access: binaryToBoolean(crmAccess),
-          crm_level_access: crmLevel,
+          crm_access_level: crmLevel,
           wpp_access: binaryToBoolean(wppAccess),
         };
 
@@ -528,9 +528,9 @@ export default function ColaboradorDetalhes() {
             wpp_acess?: boolean | null;
             crm_access?: boolean | null;
             crm_acess?: boolean | null;
+            crm_access_level?: string | null;
             crm_level_access?: string | null;
             crm_level_acess?: string | null;
-            crm_access_level?: string | null;
           };
 
           setUserRoleRowId(updatedRoleData.id ?? null);
@@ -552,12 +552,15 @@ export default function ColaboradorDetalhes() {
           setCrmAccess(normalizeBinary(updatedCrmAccess));
 
           const updatedLevel =
-            typeof updatedRoleData.crm_level_access === "string" && updatedRoleData.crm_level_access.length > 0
-              ? updatedRoleData.crm_level_access
-              : typeof updatedRoleData.crm_level_acess === "string" && updatedRoleData.crm_level_acess.length > 0
-              ? updatedRoleData.crm_level_acess
-              : typeof updatedRoleData.crm_access_level === "string" && updatedRoleData.crm_access_level.length > 0
+            typeof updatedRoleData.crm_access_level === "string" &&
+            updatedRoleData.crm_access_level.length > 0
               ? updatedRoleData.crm_access_level
+              : typeof updatedRoleData.crm_level_access === "string" &&
+                updatedRoleData.crm_level_access.length > 0
+              ? updatedRoleData.crm_level_access
+              : typeof updatedRoleData.crm_level_acess === "string" &&
+                updatedRoleData.crm_level_acess.length > 0
+              ? updatedRoleData.crm_level_acess
               : null;
           setCrmLevel(normalizeRole(updatedLevel));
         }

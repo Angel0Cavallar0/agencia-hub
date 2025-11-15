@@ -49,6 +49,7 @@ type UserRoleRow = Database["public"]["Tables"]["user_roles"]["Row"] & {
   wpp_acess?: boolean | null;
   crm_access?: boolean | null;
   crm_acess?: boolean | null;
+  crm_access_level?: string[] | string | null;
   crm_level_access?: string[] | string | null;
   crm_level_acess?: string[] | string | null;
 };
@@ -243,7 +244,7 @@ export default function Perfil() {
 
         const normalizedCrmLevels = (() => {
           const rawLevels =
-            roleRow?.crm_level_access ?? roleRow?.crm_level_acess ?? roleRow?.crm_access_level;
+            roleRow?.crm_access_level ?? roleRow?.crm_level_access ?? roleRow?.crm_level_acess;
 
           if (!rawLevels) {
             return [];
