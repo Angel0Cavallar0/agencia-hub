@@ -658,7 +658,7 @@ export default function ColaboradorDetalhes() {
   if (!colaborador) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
+        <div className="mx-auto flex min-h-[400px] w-full max-w-6xl items-center justify-center">
           <p className="text-muted-foreground">Carregando...</p>
         </div>
       </Layout>
@@ -667,7 +667,7 @@ export default function ColaboradorDetalhes() {
 
   return (
     <Layout>
-      <div className="w-full max-w-6xl space-y-6">
+      <div className="mx-auto w-full max-w-6xl space-y-6">
         <form onSubmit={handleUpdateColaborador} className="space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-center gap-4">

@@ -154,7 +154,7 @@ export function Sidebar() {
   }, [displayName]);
 
   return (
-    <aside className="w-64 bg-sidebar border-r border-sidebar-border flex h-full flex-col">
+    <aside className="fixed inset-y-0 left-0 flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar">
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
         {logoUrl ? (

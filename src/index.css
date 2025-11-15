@@ -105,7 +105,15 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    @apply h-full;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply h-screen overflow-hidden bg-background text-foreground;
+  }
+
+  #root {
+    @apply h-full;
   }
 }
