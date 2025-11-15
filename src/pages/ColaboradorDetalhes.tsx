@@ -177,7 +177,7 @@ export default function ColaboradorDetalhes() {
     },
     {
       value: "geral" as const,
-      label: "Geral",
+      label: "Básico",
       description: "Acesso básico apenas ao necessário para o trabalho diário.",
     },
   ];
