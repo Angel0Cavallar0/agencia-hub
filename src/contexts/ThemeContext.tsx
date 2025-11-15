@@ -38,17 +38,46 @@ interface ThemeContextType extends ThemeConfig {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const defaultConfig: ThemeConfig = {
-  darkMode: false,
+  darkMode: true,
   primaryColor: "166 100% 21%",
   secondaryColor: "166 98% 34%",
-  logoUrl: "",
-  faviconUrl: "",
+  logoUrl: "https://cngslbtadxahipmuwftu.supabase.co/storage/v1/object/public/imagens/logos_camaleon/logo_branca_transp.png",
+  faviconUrl: "https://cngslbtadxahipmuwftu.supabase.co/storage/v1/object/public/imagens/logos_camaleon/fav_icon.webp",
 };
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [config, setConfig] = useState<ThemeConfig>(() => {
     const saved = localStorage.getItem("leon-theme-config");
-    return saved ? JSON.parse(saved) : defaultConfig;
+    if (!saved) {
+      return defaultConfig;
+    }
+
+    try {
+      const parsedConfig = JSON.parse(saved) as Partial<ThemeConfig>;
+      const sanitizedDarkMode =
+        typeof parsedConfig.darkMode === "boolean"
+          ? parsedConfig.darkMode
+          : defaultConfig.darkMode;
+      const sanitizedLogoUrl =
+        typeof parsedConfig.logoUrl === "string" && parsedConfig.logoUrl.trim() !== ""
+          ? parsedConfig.logoUrl
+          : defaultConfig.logoUrl;
+      const sanitizedFaviconUrl =
+        typeof parsedConfig.faviconUrl === "string" && parsedConfig.faviconUrl.trim() !== ""
+          ? parsedConfig.faviconUrl
+          : defaultConfig.faviconUrl;
+
+      return {
+        ...defaultConfig,
+        ...parsedConfig,
+        darkMode: sanitizedDarkMode,
+        logoUrl: sanitizedLogoUrl,
+        faviconUrl: sanitizedFaviconUrl,
+      } as ThemeConfig;
+    } catch (error) {
+      console.error("Erro ao analisar configurações salvas:", error);
+      return defaultConfig;
+    }
   });
 
   useEffect(() => {
