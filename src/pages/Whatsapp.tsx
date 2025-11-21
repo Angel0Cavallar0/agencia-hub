@@ -45,7 +45,7 @@ export default function Whatsapp() {
     const fetchMessages = async () => {
       setLoading(true);
       const { data, error } = await supabase
-        .from("whatsapp_messages")
+        .from("chat_messages")
         .select("*")
         .order("created_at", { ascending: true });
 
@@ -128,7 +128,7 @@ export default function Whatsapp() {
       created_at: new Date().toISOString(),
     };
 
-    const { error } = await supabase.from("whatsapp_messages").insert(newRecord);
+    const { error } = await supabase.from("chat_messages").insert(newRecord);
 
     if (error) {
       toast.error("Não foi possível enviar a mensagem.");

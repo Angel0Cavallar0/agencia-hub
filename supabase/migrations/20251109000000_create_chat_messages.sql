@@ -1,5 +1,5 @@
 -- Tabela para mensagens do WhatsApp
-create table public.whatsapp_messages (
+create table public.chat_messages (
   chat_id text not null,
   message_id text primary key,
   numero_wpp text,
@@ -14,5 +14,5 @@ create table public.whatsapp_messages (
   created_at timestamptz default now()
 );
 
-create index idx_whatsapp_messages_chat_id on public.whatsapp_messages (chat_id);
-create index idx_whatsapp_messages_created_at on public.whatsapp_messages (created_at desc);
+create index idx_chat_messages_chat_id on public.chat_messages (chat_id);
+create index idx_chat_messages_created_at on public.chat_messages (created_at desc);

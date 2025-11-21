@@ -554,7 +554,7 @@ export type Database = {
         }
         Relationships: []
       }
-      whatsapp_messages: {
+      chat_messages: {
         Row: {
           chat_id: string
           chat_name: string | null
