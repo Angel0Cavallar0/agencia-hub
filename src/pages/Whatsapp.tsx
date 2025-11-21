@@ -156,7 +156,7 @@ export default function Whatsapp() {
   const handleSend = async () => {
     if (!newMessage.trim()) return;
 
-    const formattedContent = `*#${senderName}:* ${newMessage}`;
+    const formattedContent = `*#${senderName}:*\n${newMessage}`;
 
     const baseMessage = replyTo || currentMessages[currentMessages.length - 1];
     const newRecord: WhatsappMessage = {
