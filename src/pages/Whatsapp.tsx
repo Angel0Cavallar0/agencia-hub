@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 type WhatsappMessage = {
   chat_id: string;
@@ -26,13 +27,21 @@ type WhatsappMessage = {
 
 const WEBHOOK_KEY = "whatsapp-webhook-url";
 
+type SenderProfile = {
+  nome: string | null;
+  sobrenome: string | null;
+  apelido: string | null;
+};
+
 export default function Whatsapp() {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<WhatsappMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<WhatsappMessage | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [webhookUrl, setWebhookUrl] = useState<string>("");
+  const [senderProfile, setSenderProfile] = useState<SenderProfile | null>(null);
 
   useEffect(() => {
     const storedWebhook = localStorage.getItem(WEBHOOK_KEY);
@@ -40,6 +49,34 @@ export default function Whatsapp() {
       setWebhookUrl(storedWebhook);
     }
   }, []);
+
+  useEffect(() => {
+    const loadSender = async () => {
+      if (!user?.id) {
+        setSenderProfile(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("colaborador")
+        .select("nome, sobrenome, apelido")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Erro ao carregar dados do usuário do WhatsApp:", error);
+        return;
+      }
+
+      setSenderProfile({
+        nome: data?.nome ?? null,
+        sobrenome: data?.sobrenome ?? null,
+        apelido: data?.apelido ?? null,
+      });
+    };
+
+    loadSender();
+  }, [user?.id]);
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -98,6 +135,13 @@ export default function Whatsapp() {
     [messages, selectedChat]
   );
 
+  const senderName = useMemo(() => {
+    if (senderProfile?.apelido) return senderProfile.apelido;
+    const parts = [senderProfile?.nome, senderProfile?.sobrenome].filter(Boolean) as string[];
+    if (parts.length > 0) return parts.join(" ");
+    return user?.email ?? "Usuário";
+  }, [senderProfile?.apelido, senderProfile?.nome, senderProfile?.sobrenome, user?.email]);
+
   const formatTime = (timestamp?: string | null) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
@@ -112,6 +156,8 @@ export default function Whatsapp() {
   const handleSend = async () => {
     if (!newMessage.trim()) return;
 
+    const formattedContent = `*#${senderName}:* ${newMessage}`;
+
     const baseMessage = replyTo || currentMessages[currentMessages.length - 1];
     const newRecord: WhatsappMessage = {
       chat_id: baseMessage?.chat_id || selectedChat || crypto.randomUUID(),
@@ -123,7 +169,7 @@ export default function Whatsapp() {
       encaminhado: baseMessage?.encaminhado ?? false,
       is_group: baseMessage?.is_group ?? false,
       is_edited: false,
-      message: newMessage,
+      message: formattedContent,
       reference_message_id: replyTo?.message_id || baseMessage?.message_id || null,
       created_at: new Date().toISOString(),
     };
