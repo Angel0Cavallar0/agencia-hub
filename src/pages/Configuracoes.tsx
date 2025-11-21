@@ -25,6 +25,9 @@ export default function Configuracoes() {
   } = useTheme();
   const [tempLogoUrl, setTempLogoUrl] = useState(logoUrl);
   const [tempFaviconUrl, setTempFaviconUrl] = useState(faviconUrl);
+  const [whatsappWebhook, setWhatsappWebhook] = useState(
+    () => localStorage.getItem("whatsapp-webhook-url") || ""
+  );
 
   const handleSaveUrls = () => {
     setLogoUrl(tempLogoUrl);
@@ -88,6 +91,7 @@ export default function Configuracoes() {
           <TabsList>
             <TabsTrigger value="appearance">Aparência</TabsTrigger>
             <TabsTrigger value="organizational">Organização</TabsTrigger>
+            <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           </TabsList>
 
           <TabsContent value="appearance">
@@ -216,6 +220,39 @@ export default function Configuracoes() {
                 <p className="text-sm text-muted-foreground">
                   Em breve você poderá configurar preferências organizacionais como nomenclatura de equipes e fluxos de aprovação.
                 </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="whatsapp">
+            <Card>
+              <CardHeader>
+                <CardTitle>Integração com WhatsApp</CardTitle>
+                <CardDescription>
+                  Configure o webhook usado para receber os dados das mensagens respondidas
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="webhook">URL do Webhook</Label>
+                  <Input
+                    id="webhook"
+                    placeholder="https://meuservico.com/webhook"
+                    value={whatsappWebhook}
+                    onChange={(e) => setWhatsappWebhook(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    A URL será chamada com os dados da mensagem original e da resposta enviada.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    localStorage.setItem("whatsapp-webhook-url", whatsappWebhook);
+                    toast.success("Webhook salvo com sucesso!");
+                  }}
+                >
+                  Salvar Webhook
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

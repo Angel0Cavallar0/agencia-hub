@@ -554,6 +554,51 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          chat_id: string
+          chat_name: string | null
+          created_at: string | null
+          direcao: string | null
+          encaminhado: boolean | null
+          foto_contato: string | null
+          is_edited: boolean | null
+          is_group: boolean | null
+          message: string | null
+          message_id: string
+          numero_wpp: string | null
+          reference_message_id: string | null
+        }
+        Insert: {
+          chat_id: string
+          chat_name?: string | null
+          created_at?: string | null
+          direcao?: string | null
+          encaminhado?: boolean | null
+          foto_contato?: string | null
+          is_edited?: boolean | null
+          is_group?: boolean | null
+          message?: string | null
+          message_id?: string
+          numero_wpp?: string | null
+          reference_message_id?: string | null
+        }
+        Update: {
+          chat_id?: string
+          chat_name?: string | null
+          created_at?: string | null
+          direcao?: string | null
+          encaminhado?: boolean | null
+          foto_contato?: string | null
+          is_edited?: boolean | null
+          is_group?: boolean | null
+          message?: string | null
+          message_id?: string
+          numero_wpp?: string | null
+          reference_message_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
