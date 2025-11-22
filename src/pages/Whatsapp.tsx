@@ -100,6 +100,27 @@ export default function Whatsapp() {
     };
 
     fetchMessages();
+
+    // Real-time subscription
+    const channel = supabase
+      .channel('chat-messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages'
+        },
+        (payload) => {
+          console.log('Nova mensagem recebida:', payload);
+          setMessages((prev) => [...prev, payload.new as WhatsappMessage]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const chats = useMemo(() => {
@@ -209,121 +230,138 @@ export default function Whatsapp() {
     }
   };
 
+  const selectedChatData = useMemo(() => {
+    return chats.find((chat) => chat.chat === selectedChat);
+  }, [chats, selectedChat]);
+
   return (
     <Layout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">WhatsApp</h1>
-          <p className="text-muted-foreground">Visualize e responda às mensagens recebidas</p>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-4">
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle>Conversas</CardTitle>
-              <CardDescription>Grupos e contatos sincronizados do WhatsApp</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[620px] pr-4">
-                {loading && <p className="text-sm text-muted-foreground">Carregando mensagens...</p>}
-                {!loading && chats.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Nenhuma conversa encontrada.</p>
-                )}
-                <div className="space-y-3">
-                  {chats.map((chat) => (
-                    <button
-                      key={chat.chat}
-                      onClick={() => setSelectedChat(chat.chat)}
-                      className={`w-full rounded-lg border p-3 text-left transition ${
-                        selectedChat === chat.chat ? "border-primary bg-primary/10" : "hover:bg-muted"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={chat.lastMessage?.foto_contato || undefined} alt={chat.name} />
-                          <AvatarFallback>{chat.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="font-medium leading-none">{chat.name}</p>
-                            {chat.isGroup && <Badge variant="outline">Grupo</Badge>}
-                          </div>
-                          <p className="text-xs text-muted-foreground">{formatTime(chat.lastMessage?.created_at)}</p>
-                          <p className="truncate text-sm text-muted-foreground">{chat.lastMessage?.message}</p>
+      <div className="flex h-full flex-col">
+        <div className="grid h-full lg:grid-cols-[340px_1fr]">
+          {/* Sidebar de conversas */}
+          <div className="flex flex-col border-r border-border bg-background">
+            <div className="border-b border-border bg-muted/30 p-4">
+              <h2 className="text-lg font-semibold">Conversas</h2>
+            </div>
+            <ScrollArea className="flex-1">
+              {loading && <p className="p-4 text-sm text-muted-foreground">Carregando...</p>}
+              {!loading && chats.length === 0 && (
+                <p className="p-4 text-sm text-muted-foreground">Nenhuma conversa</p>
+              )}
+              <div className="divide-y divide-border">
+                {chats.map((chat) => (
+                  <button
+                    key={chat.chat}
+                    onClick={() => setSelectedChat(chat.chat)}
+                    className={`w-full p-4 text-left transition hover:bg-muted/50 ${
+                      selectedChat === chat.chat ? "bg-muted/80" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={chat.lastMessage?.foto_contato || undefined} alt={chat.name} />
+                        <AvatarFallback className="bg-primary/10 text-primary">
+                          {chat.name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="truncate font-semibold">{chat.name}</p>
+                          <span className="text-xs text-muted-foreground">
+                            {chat.lastMessage?.created_at
+                              ? new Date(chat.lastMessage.created_at).toLocaleTimeString("pt-BR", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : ""}
+                          </span>
                         </div>
+                        <p className="truncate text-sm text-muted-foreground">{chat.lastMessage?.message}</p>
                       </div>
-                    </button>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-3">
-            <CardHeader>
-              <CardTitle>Janela de Chat</CardTitle>
-              <CardDescription>Visualize o histórico e responda às mensagens recebidas</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!selectedChat ? (
-                <p className="text-muted-foreground">Selecione uma conversa para visualizar as mensagens.</p>
-              ) : (
-                <>
-                  <ScrollArea className="h-[520px] pr-4">
-                    <div className="space-y-4">
-                      {currentMessages.map((message) => (
-                        <div
-                          key={message.message_id}
-                          className={`flex ${message.direcao === "SENT" ? "justify-end" : "justify-start"}`}
-                        >
-                          <div
-                            className={`max-w-[75%] rounded-lg border p-3 shadow-sm ${
-                              message.direcao === "SENT" ? "bg-primary text-primary-foreground" : "bg-muted"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                {message.encaminhado && <Badge variant="secondary">Encaminhado</Badge>}
-                                {message.is_group && <Badge variant="outline">Grupo</Badge>}
-                                {message.is_edited && <Badge variant="outline">Editado</Badge>}
-                              </div>
-                              <span className="text-[11px] opacity-80">{formatTime(message.created_at)}</span>
-                            </div>
-                            <p className="mt-2 whitespace-pre-wrap text-sm">{message.message}</p>
-                            {message.reference_message_id && (
-                              <p className="mt-2 text-xs text-muted-foreground">
-                                Respondendo a: {message.reference_message_id}
-                              </p>
-                            )}
-                            {message.direcao !== "SENT" && (
-                              <div className="mt-3 flex justify-end">
-                                <Button variant="secondary" size="sm" onClick={() => setReplyTo(message)}>
-                                  Responder
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      <div ref={messagesEndRef} />
                     </div>
-                  </ScrollArea>
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
 
-                  {replyTo && (
-                    <div className="rounded-lg border bg-muted/60 p-3 text-sm">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">Respondendo a</p>
-                          <p className="text-muted-foreground">{replyTo.message}</p>
+          {/* Área de chat */}
+          <div className="flex flex-col bg-background">
+            {!selectedChat ? (
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-muted-foreground">Selecione uma conversa</p>
+              </div>
+            ) : (
+              <>
+                {/* Header do chat */}
+                <div className="flex items-center gap-3 border-b border-border bg-muted/30 p-4">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage
+                      src={selectedChatData?.lastMessage?.foto_contato || undefined}
+                      alt={selectedChatData?.name}
+                    />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {selectedChatData?.name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold">{selectedChatData?.name}</p>
+                    {selectedChatData?.isGroup && (
+                      <p className="text-xs text-muted-foreground">Grupo</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mensagens */}
+                <ScrollArea className="flex-1 bg-muted/20 p-4">
+                  <div className="space-y-3">
+                    {currentMessages.map((message) => (
+                      <div
+                        key={message.message_id}
+                        className={`flex ${message.direcao === "SENT" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[65%] rounded-lg px-3 py-2 shadow-sm ${
+                            message.direcao === "SENT"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-background border border-border"
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap text-sm">{message.message}</p>
+                          <div className="mt-1 flex items-center justify-end gap-1">
+                            {message.is_edited && (
+                              <span className="text-[10px] opacity-60">editado</span>
+                            )}
+                            <span className="text-[10px] opacity-60">
+                              {message.created_at
+                                ? new Date(message.created_at).toLocaleTimeString("pt-BR", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : ""}
+                            </span>
+                          </div>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => setReplyTo(null)}>
-                          Cancelar
-                        </Button>
                       </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </ScrollArea>
+
+                {/* Input de mensagem */}
+                <div className="border-t border-border bg-background p-4">
+                  {replyTo && (
+                    <div className="mb-2 flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-2 text-sm">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-primary">Respondendo</p>
+                        <p className="truncate text-xs text-muted-foreground">{replyTo.message}</p>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setReplyTo(null)}>
+                        ✕
+                      </Button>
                     </div>
                   )}
-
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-2">
                     <Input
                       placeholder="Digite uma mensagem"
                       value={newMessage}
@@ -334,13 +372,29 @@ export default function Whatsapp() {
                           handleSend();
                         }
                       }}
+                      className="flex-1"
                     />
-                    <Button onClick={handleSend}>Enviar</Button>
+                    <Button onClick={handleSend} size="icon" className="shrink-0">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m22 2-7 20-4-9-9-4Z" />
+                        <path d="M22 2 11 13" />
+                      </svg>
+                    </Button>
                   </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </Layout>
