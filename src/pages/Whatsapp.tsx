@@ -236,11 +236,11 @@ export default function Whatsapp() {
 
   return (
     <Layout noPadding>
-      <div className="flex h-full flex-col">
-        <div className="grid h-full lg:grid-cols-[340px_1fr]">
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="grid h-full min-h-0 lg:grid-cols-[340px_1fr]">
           {/* Sidebar de conversas */}
-          <div className="flex flex-col border-r border-border bg-background">
-            <div className="border-b border-border bg-muted/30 p-4">
+          <div className="flex min-h-0 flex-col border-r border-border bg-background">
+            <div className="sticky top-0 z-10 border-b border-border bg-muted/30 p-4">
               <h2 className="text-lg font-semibold">Conversas</h2>
             </div>
             <ScrollArea className="flex-1">
@@ -286,7 +286,7 @@ export default function Whatsapp() {
           </div>
 
           {/* Área de chat */}
-          <div className="flex flex-col bg-background">
+          <div className="flex min-h-0 flex-col bg-background">
             {!selectedChat ? (
               <div className="flex flex-1 items-center justify-center">
                 <p className="text-muted-foreground">Selecione uma conversa</p>
@@ -294,7 +294,7 @@ export default function Whatsapp() {
             ) : (
               <>
                 {/* Header do chat */}
-                <div className="flex items-center gap-3 border-b border-border bg-muted/30 p-4">
+                <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-muted/30 p-4">
                   <Avatar className="h-10 w-10">
                     <AvatarImage
                       src={selectedChatData?.lastMessage?.foto_contato || undefined}

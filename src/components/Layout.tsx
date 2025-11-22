@@ -12,12 +12,13 @@ interface LayoutProps {
 
 export const Layout = ({ children, noPadding = false }: LayoutProps) => {
   const mainPadding = noPadding ? "" : "p-8";
+  const mainOverflow = noPadding ? "overflow-hidden" : "overflow-y-auto";
 
   return (
     <div className="flex h-screen bg-background text-foreground">
       <Sidebar />
       <main
-        className={`ml-64 flex-1 h-screen min-w-0 overflow-y-auto overflow-x-hidden ${mainPadding}`}
+        className={`ml-64 flex-1 h-screen min-w-0 overflow-x-hidden ${mainOverflow} ${mainPadding}`}
       >
         {children}
       </main>
