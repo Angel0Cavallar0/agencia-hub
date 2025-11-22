@@ -3,13 +3,22 @@ import { Sidebar } from "./Sidebar";
 
 interface LayoutProps {
   children: ReactNode;
+  /**
+   * Remove default padding from the main area to allow full-bleed layouts
+   * (e.g., pages that need to occupy the entire viewport without gutters).
+   */
+  noPadding?: boolean;
 }
 
-export const Layout = ({ children }: LayoutProps) => {
+export const Layout = ({ children, noPadding = false }: LayoutProps) => {
+  const mainPadding = noPadding ? "" : "p-8";
+
   return (
     <div className="flex h-screen bg-background text-foreground">
       <Sidebar />
-      <main className="ml-64 flex-1 h-screen min-w-0 overflow-y-auto overflow-x-hidden p-8">
+      <main
+        className={`ml-64 flex-1 h-screen min-w-0 overflow-y-auto overflow-x-hidden ${mainPadding}`}
+      >
         {children}
       </main>
     </div>

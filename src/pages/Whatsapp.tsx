@@ -235,7 +235,7 @@ export default function Whatsapp() {
   }, [chats, selectedChat]);
 
   return (
-    <Layout>
+    <Layout noPadding>
       <div className="flex h-full flex-col">
         <div className="grid h-full lg:grid-cols-[340px_1fr]">
           {/* Sidebar de conversas */}
