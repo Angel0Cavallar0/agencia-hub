@@ -57,6 +57,7 @@ export function Sidebar() {
   const { logoUrl } = useTheme();
   const [clickUpOpen, setClickUpOpen] = useState(false);
   const [hoverTimer, setHoverTimer] = useState<number | null>(null);
+  const [closeTimer, setCloseTimer] = useState<number | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<SidebarProfile | null>(null);
@@ -162,6 +163,11 @@ export function Sidebar() {
       window.clearTimeout(hoverTimer);
     }
 
+    if (closeTimer) {
+      window.clearTimeout(closeTimer);
+      setCloseTimer(null);
+    }
+
     const timer = window.setTimeout(() => {
       setClickUpOpen(true);
     }, 250);
@@ -175,7 +181,15 @@ export function Sidebar() {
       setHoverTimer(null);
     }
 
-    setClickUpOpen(false);
+    if (closeTimer) {
+      window.clearTimeout(closeTimer);
+    }
+
+    const timer = window.setTimeout(() => {
+      setClickUpOpen(false);
+    }, 200);
+
+    setCloseTimer(timer);
   };
 
   useEffect(() => {
@@ -183,8 +197,12 @@ export function Sidebar() {
       if (hoverTimer) {
         window.clearTimeout(hoverTimer);
       }
+
+      if (closeTimer) {
+        window.clearTimeout(closeTimer);
+      }
     };
-  }, [hoverTimer]);
+  }, [hoverTimer, closeTimer]);
 
   return (
     <aside className="fixed inset-y-0 left-0 flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar">
