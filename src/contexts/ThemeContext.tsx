@@ -139,23 +139,44 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     setConfig((prev) => ({ ...prev, faviconUrl: url }));
   };
 
+  const parseThemeSettings = (value: unknown): Partial<ThemeConfig> => {
+    if (!value || typeof value !== "object") return {};
+
+    const settings = value as Partial<ThemeConfig>;
+    return {
+      darkMode: typeof settings.darkMode === "boolean" ? settings.darkMode : undefined,
+      primaryColor: typeof settings.primaryColor === "string" ? settings.primaryColor : undefined,
+      secondaryColor: typeof settings.secondaryColor === "string" ? settings.secondaryColor : undefined,
+      logoUrl: typeof settings.logoUrl === "string" ? settings.logoUrl : undefined,
+      faviconUrl: typeof settings.faviconUrl === "string" ? settings.faviconUrl : undefined,
+    };
+  };
+
   const loadGlobalSettings = async () => {
     try {
       const { data, error } = await supabase
         .from("global_settings")
-        .select("value")
-        .eq("key", "theme_colors")
-        .maybeSingle();
+        .select("key, value")
+        .in("key", ["theme_settings", "theme_colors"]);
 
       if (error) throw error;
 
-      if (data?.value && typeof data.value === "object" && "primary" in data.value && "secondary" in data.value) {
-        setConfig((prev) => ({
+      const themeSettings = data?.find((item) => item.key === "theme_settings");
+      const themeColors = data?.find((item) => item.key === "theme_colors");
+
+      setConfig((prev) => {
+        const parsedSettings = parseThemeSettings(themeSettings?.value);
+        const parsedColors = parseThemeSettings(themeColors?.value);
+
+        return {
           ...prev,
-          primaryColor: (data.value as any).primary || prev.primaryColor,
-          secondaryColor: (data.value as any).secondary || prev.secondaryColor,
-        }));
-      }
+          darkMode: parsedSettings.darkMode ?? prev.darkMode,
+          primaryColor: parsedSettings.primaryColor || parsedColors.primaryColor || prev.primaryColor,
+          secondaryColor: parsedSettings.secondaryColor || parsedColors.secondaryColor || prev.secondaryColor,
+          logoUrl: parsedSettings.logoUrl || prev.logoUrl,
+          faviconUrl: parsedSettings.faviconUrl || prev.faviconUrl,
+        };
+      });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
@@ -170,22 +191,35 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   const saveAsGlobal = async () => {
     try {
-      const { error } = await supabase
-        .from("global_settings")
-        .upsert({
+      const { error } = await supabase.from("global_settings").upsert([
+        {
+          key: "theme_settings",
+          value: {
+            darkMode: config.darkMode,
+            primaryColor: config.primaryColor,
+            secondaryColor: config.secondaryColor,
+            logoUrl: config.logoUrl,
+            faviconUrl: config.faviconUrl,
+          },
+        },
+        {
           key: "theme_colors",
           value: {
             primary: config.primaryColor,
             secondary: config.secondaryColor,
           },
-        });
+        },
+      ]);
 
       if (error) throw error;
       await logger.success("Configurações globais de tema atualizadas", {
         primaryColor: config.primaryColor,
         secondaryColor: config.secondaryColor,
+        darkMode: config.darkMode,
+        logoUrl: config.logoUrl,
+        faviconUrl: config.faviconUrl,
       });
-      toast.success("Cores padrão salvas para todos os usuários!");
+      toast.success("Configurações salvas como padrão para todos os usuários!");
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
@@ -195,6 +229,9 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         errorStack,
         primaryColor: config.primaryColor,
         secondaryColor: config.secondaryColor,
+        darkMode: config.darkMode,
+        logoUrl: config.logoUrl,
+        faviconUrl: config.faviconUrl,
       });
       toast.error("Erro ao salvar configurações globais: " + errorMessage);
     }

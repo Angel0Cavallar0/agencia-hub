@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/logger";
 
 export default function Configuracoes() {
   const { 
@@ -28,6 +30,47 @@ export default function Configuracoes() {
   const [whatsappWebhook, setWhatsappWebhook] = useState(
     () => localStorage.getItem("whatsapp-webhook-url") || ""
   );
+  const [isLoadingWebhook, setIsLoadingWebhook] = useState(true);
+  const [isSavingWebhook, setIsSavingWebhook] = useState(false);
+
+  useEffect(() => {
+    const loadWebhook = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("global_settings")
+          .select("value")
+          .eq("key", "whatsapp_webhook")
+          .maybeSingle();
+
+        if (error) throw error;
+
+        const webhookValue =
+          typeof data?.value === "string"
+            ? data.value
+            : typeof (data?.value as any)?.url === "string"
+              ? (data?.value as any).url
+              : "";
+
+        if (webhookValue) {
+          setWhatsappWebhook(webhookValue);
+          localStorage.setItem("whatsapp-webhook-url", webhookValue);
+        }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+
+        await logger.error("Erro ao carregar webhook global", "WHATSAPP_WEBHOOK_LOAD", {
+          errorMessage,
+          errorStack,
+        });
+        toast.error("Não foi possível carregar o webhook padrão");
+      } finally {
+        setIsLoadingWebhook(false);
+      }
+    };
+
+    loadWebhook();
+  }, []);
 
   const handleSaveUrls = () => {
     setLogoUrl(tempLogoUrl);
@@ -238,6 +281,7 @@ export default function Configuracoes() {
                   <Input
                     id="webhook"
                     placeholder="https://meuservico.com/webhook"
+                    disabled={isLoadingWebhook}
                     value={whatsappWebhook}
                     onChange={(e) => setWhatsappWebhook(e.target.value)}
                   />
@@ -246,12 +290,36 @@ export default function Configuracoes() {
                   </p>
                 </div>
                 <Button
-                  onClick={() => {
-                    localStorage.setItem("whatsapp-webhook-url", whatsappWebhook);
-                    toast.success("Webhook salvo com sucesso!");
+                  disabled={isSavingWebhook}
+                  onClick={async () => {
+                    setIsSavingWebhook(true);
+                    try {
+                      const { error } = await supabase.from("global_settings").upsert({
+                        key: "whatsapp_webhook",
+                        value: whatsappWebhook,
+                      });
+
+                      if (error) throw error;
+
+                      localStorage.setItem("whatsapp-webhook-url", whatsappWebhook);
+                      await logger.success("Webhook global atualizado", { webhook: whatsappWebhook });
+                      toast.success("Webhook salvo como padrão para todos os usuários!");
+                    } catch (error: unknown) {
+                      const errorMessage = error instanceof Error ? error.message : String(error);
+                      const errorStack = error instanceof Error ? error.stack : undefined;
+
+                      await logger.error("Erro ao salvar webhook global", "WHATSAPP_WEBHOOK_SAVE", {
+                        errorMessage,
+                        errorStack,
+                        webhook: whatsappWebhook,
+                      });
+                      toast.error("Erro ao salvar webhook padrão: " + errorMessage);
+                    } finally {
+                      setIsSavingWebhook(false);
+                    }
                   }}
                 >
-                  Salvar Webhook
+                  {isSavingWebhook ? "Salvando..." : "Salvar webhook padrão"}
                 </Button>
               </CardContent>
             </Card>
