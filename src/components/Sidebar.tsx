@@ -59,6 +59,9 @@ export function Sidebar() {
   const [clickUpOpen, setClickUpOpen] = useState(false);
   const [hoverTimer, setHoverTimer] = useState<number | null>(null);
   const [closeTimer, setCloseTimer] = useState<number | null>(null);
+  const [footerMenuOpen, setFooterMenuOpen] = useState(false);
+  const [footerHoverTimer, setFooterHoverTimer] = useState<number | null>(null);
+  const [footerCloseTimer, setFooterCloseTimer] = useState<number | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("sidebar-collapsed") === "true";
@@ -206,15 +209,63 @@ export function Sidebar() {
       if (closeTimer) {
         window.clearTimeout(closeTimer);
       }
+
+      if (footerHoverTimer) {
+        window.clearTimeout(footerHoverTimer);
+      }
+
+      if (footerCloseTimer) {
+        window.clearTimeout(footerCloseTimer);
+      }
     };
-  }, [hoverTimer, closeTimer]);
+  }, [hoverTimer, closeTimer, footerHoverTimer, footerCloseTimer]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     localStorage.setItem("sidebar-collapsed", isCollapsed ? "true" : "false");
   }, [isCollapsed]);
 
+  useEffect(() => {
+    if (!isCollapsed) {
+      setFooterMenuOpen(false);
+    }
+  }, [isCollapsed]);
+
   const activeLogoIcon = logoIconUrl?.trim() ? logoIconUrl : logoUrl;
+
+  const handleFooterEnter = () => {
+    if (footerHoverTimer) {
+      window.clearTimeout(footerHoverTimer);
+    }
+
+    if (footerCloseTimer) {
+      window.clearTimeout(footerCloseTimer);
+      setFooterCloseTimer(null);
+    }
+
+    const timer = window.setTimeout(() => {
+      setFooterMenuOpen(true);
+    }, 150);
+
+    setFooterHoverTimer(timer);
+  };
+
+  const handleFooterLeave = () => {
+    if (footerHoverTimer) {
+      window.clearTimeout(footerHoverTimer);
+      setFooterHoverTimer(null);
+    }
+
+    if (footerCloseTimer) {
+      window.clearTimeout(footerCloseTimer);
+    }
+
+    const timer = window.setTimeout(() => {
+      setFooterMenuOpen(false);
+    }, 180);
+
+    setFooterCloseTimer(timer);
+  };
 
   return (
     <aside
@@ -342,24 +393,9 @@ export function Sidebar() {
         )}
       </nav>
 
-      {/* Footer com Logs, Configurações e Sair */}
+      {/* Footer com Logs, Configurações, Recolher e Sair */}
       <div className="border-t border-sidebar-border px-4 py-3">
         <div className="flex flex-col gap-4">
-          <button
-            type="button"
-            onClick={() => setIsCollapsed((prev) => !prev)}
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-medium transition-colors hover:bg-sidebar-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-              isCollapsed ? "justify-center" : ""
-            )}
-          >
-            <ChevronsLeftRight className="h-4 w-4" />
-            {!isCollapsed ? (
-              <span>Recolher barra</span>
-            ) : (
-              <span className="sr-only">Expandir barra</span>
-            )}
-          </button>
           <button
             type="button"
             onClick={() => navigate("/perfil")}
@@ -385,55 +421,129 @@ export function Sidebar() {
           </button>
           <div className="h-px bg-sidebar-border" />
           <TooltipProvider delayDuration={0}>
-            <div className="flex items-center justify-center gap-3">
-              {userRole === "admin" && (
-                <>
-                  <Tooltip>
-                  <TooltipTrigger asChild>
-                    <NavLink
-                      to="/logs"
-                      end
-                      aria-label="Logs"
-                      className="flex items-center justify-center p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-                      activeClassName="text-sidebar-accent-foreground"
-                    >
-                      <FileText className="h-5 w-5" />
-                      <span className="sr-only">Logs</span>
-                    </NavLink>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Logs</TooltipContent>
-                </Tooltip>
+            {isCollapsed ? (
+              <div
+                className="relative flex justify-center"
+                onMouseEnter={handleFooterEnter}
+                onMouseLeave={handleFooterLeave}
+              >
+                <button
+                  type="button"
+                  aria-label="Abrir menu rápido"
+                  className="flex items-center justify-center rounded-lg p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                >
+                  <Settings className="h-5 w-5" />
+                </button>
+                {footerMenuOpen && (
+                  <div className="absolute left-full bottom-0 z-20 mb-2 ml-3 w-52 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground shadow-lg">
+                    <div className="space-y-1 p-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsCollapsed(false)}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-sidebar/20"
+                      >
+                        <ChevronsLeftRight className="h-4 w-4" />
+                        <span>Expandir barra</span>
+                      </button>
+                      {userRole === "admin" && (
+                        <>
+                          <NavLink
+                            to="/configuracoes"
+                            end
+                            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar/20"
+                            activeClassName="bg-sidebar text-sidebar-foreground"
+                          >
+                            <Settings className="h-4 w-4" />
+                            <span>Configurações</span>
+                          </NavLink>
+                          <NavLink
+                            to="/logs"
+                            end
+                            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar/20"
+                            activeClassName="bg-sidebar text-sidebar-foreground"
+                          >
+                            <FileText className="h-4 w-4" />
+                            <span>Logs</span>
+                          </NavLink>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        onClick={signOut}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-sidebar/20"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>Sair</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-3">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <NavLink
-                      to="/configuracoes"
-                      end
-                      aria-label="Configurações"
-                      className="flex items-center justify-center p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-                      activeClassName="text-sidebar-accent-foreground"
+                    <button
+                      type="button"
+                      onClick={() => setIsCollapsed(true)}
+                      aria-label="Recolher barra"
+                      className="flex items-center justify-center rounded-lg p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
                     >
-                      <Settings className="h-5 w-5" />
-                      <span className="sr-only">Configurações</span>
-                    </NavLink>
+                      <ChevronsLeftRight className="h-5 w-5" />
+                      <span className="sr-only">Recolher barra</span>
+                    </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top">Configurações</TooltipContent>
+                  <TooltipContent side="top">Recolher barra</TooltipContent>
                 </Tooltip>
-              </>
+                {userRole === "admin" && (
+                  <>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <NavLink
+                          to="/configuracoes"
+                          end
+                          aria-label="Configurações"
+                          className="flex items-center justify-center rounded-lg p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                          activeClassName="text-sidebar-accent-foreground"
+                        >
+                          <Settings className="h-5 w-5" />
+                          <span className="sr-only">Configurações</span>
+                        </NavLink>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Configurações</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <NavLink
+                          to="/logs"
+                          end
+                          aria-label="Logs"
+                          className="flex items-center justify-center rounded-lg p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                          activeClassName="text-sidebar-accent-foreground"
+                        >
+                          <FileText className="h-5 w-5" />
+                          <span className="sr-only">Logs</span>
+                        </NavLink>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Logs</TooltipContent>
+                    </Tooltip>
+                  </>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={signOut}
+                      aria-label="Sair"
+                      className="flex items-center justify-center rounded-lg p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      <span className="sr-only">Sair</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Sair</TooltipContent>
+                </Tooltip>
+              </div>
             )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={signOut}
-                  aria-label="Sair"
-                  className="flex items-center justify-center p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-                >
-                  <LogOut className="h-5 w-5" />
-                  <span className="sr-only">Sair</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">Sair</TooltipContent>
-            </Tooltip>
-            </div>
           </TooltipProvider>
         </div>
       </div>
