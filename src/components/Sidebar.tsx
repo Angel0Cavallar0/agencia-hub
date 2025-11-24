@@ -19,22 +19,25 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 
-const menuItems = [
+const mainMenuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: Users, label: "Clientes", path: "/clientes" },
   { icon: UserCog, label: "Colaboradores", path: "/colaboradores" },
-  {
-    icon: MousePointerClick,
-    label: "ClickUp",
-    path: "/clickup",
-    submenu: [
-      { label: "Responsáveis", path: "/clickup/responsaveis" },
-      { label: "Tarefas", path: "/clickup/tarefas" },
-      { label: "Pastas", path: "/clickup/pastas" },
-      { label: "Listas", path: "/clickup/listas" },
-    ],
-  },
 ];
+
+const clickUpMenuItem = {
+  icon: MousePointerClick,
+  label: "ClickUp",
+  path: "/clickup",
+  submenu: [
+    { label: "Responsáveis", path: "/clickup/responsaveis" },
+    { label: "Tarefas", path: "/clickup/tarefas" },
+    { label: "Pastas", path: "/clickup/pastas" },
+    { label: "Listas", path: "/clickup/listas" },
+  ],
+} as const;
+
+const menuItems = [...mainMenuItems, clickUpMenuItem];
 
 type SidebarProfile = {
   id_colaborador: string | null;
@@ -53,6 +56,8 @@ export function Sidebar() {
   const { user, signOut, userRole } = useAuth();
   const { logoUrl } = useTheme();
   const [clickUpOpen, setClickUpOpen] = useState(false);
+  const [hoverTimer, setHoverTimer] = useState<number | null>(null);
+  const [closeTimer, setCloseTimer] = useState<number | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<SidebarProfile | null>(null);
@@ -153,6 +158,52 @@ export function Sidebar() {
     return "?";
   }, [displayName]);
 
+  const handleClickUpEnter = () => {
+    if (hoverTimer) {
+      window.clearTimeout(hoverTimer);
+    }
+
+    if (closeTimer) {
+      window.clearTimeout(closeTimer);
+      setCloseTimer(null);
+    }
+
+    const timer = window.setTimeout(() => {
+      setClickUpOpen(true);
+    }, 250);
+
+    setHoverTimer(timer);
+  };
+
+  const handleClickUpLeave = () => {
+    if (hoverTimer) {
+      window.clearTimeout(hoverTimer);
+      setHoverTimer(null);
+    }
+
+    if (closeTimer) {
+      window.clearTimeout(closeTimer);
+    }
+
+    const timer = window.setTimeout(() => {
+      setClickUpOpen(false);
+    }, 200);
+
+    setCloseTimer(timer);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimer) {
+        window.clearTimeout(hoverTimer);
+      }
+
+      if (closeTimer) {
+        window.clearTimeout(closeTimer);
+      }
+    };
+  }, [hoverTimer, closeTimer]);
+
   return (
     <aside className="fixed inset-y-0 left-0 flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar">
       {/* Logo */}
@@ -165,19 +216,19 @@ export function Sidebar() {
       </div>
 
       {/* Menu Items */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="relative flex-1 p-4 space-y-2">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path || 
+          const isActive = location.pathname === item.path ||
             (item.submenu && item.submenu.some(sub => location.pathname === sub.path));
 
           if (item.submenu) {
             return (
-              <div 
-                key={item.path} 
-                className="space-y-1"
-                onMouseEnter={() => setClickUpOpen(true)}
-                onMouseLeave={() => setClickUpOpen(false)}
+              <div
+                key={item.path}
+                className="relative space-y-1"
+                onMouseEnter={handleClickUpEnter}
+                onMouseLeave={handleClickUpLeave}
               >
                 <div
                   className={cn(
@@ -191,18 +242,20 @@ export function Sidebar() {
                   <span className="font-medium">{item.label}</span>
                 </div>
                 {clickUpOpen && (
-                  <div className="ml-8 space-y-1">
-                    {item.submenu.map((subItem) => (
-                      <NavLink
-                        key={subItem.path}
-                        to={subItem.path}
-                        end
-                        className="block px-3 py-2 rounded-lg text-sm transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
-                      >
-                        {subItem.label}
-                      </NavLink>
-                    ))}
+                  <div className="absolute left-full top-0 z-20 ml-3 w-56 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground shadow-lg">
+                    <div className="space-y-1 p-3">
+                      {item.submenu.map((subItem) => (
+                        <NavLink
+                          key={subItem.path}
+                          to={subItem.path}
+                          end
+                          className="block rounded-lg px-3 py-2 text-sm transition-colors hover:bg-sidebar bg-sidebar/20"
+                          activeClassName="bg-sidebar text-sidebar-foreground"
+                        >
+                          {subItem.label}
+                        </NavLink>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
