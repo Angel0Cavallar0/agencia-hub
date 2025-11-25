@@ -394,6 +394,14 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
                   className="w-56 border-sidebar-border bg-sidebar text-sidebar-foreground"
                 >
                   <div className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={onToggleCollapse}
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-sidebar-accent/10"
+                    >
+                      <PanelLeftOpen className="h-5 w-5" />
+                      <span>Expandir menu</span>
+                    </button>
                     {userRole === "admin" && (
                       <NavLink
                         to="/logs"
@@ -401,7 +409,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
                         className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent/10"
                         activeClassName="bg-sidebar-accent/20 text-sidebar-accent-foreground"
                       >
-                        <FileText className="h-4 w-4" />
+                        <FileText className="h-5 w-5" />
                         <span>Logs</span>
                       </NavLink>
                     )}
@@ -411,23 +419,15 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
                       className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent/10"
                       activeClassName="bg-sidebar-accent/20 text-sidebar-accent-foreground"
                     >
-                      <Settings className="h-4 w-4" />
+                      <Settings className="h-5 w-5" />
                       <span>Configurações</span>
                     </NavLink>
-                    <button
-                      type="button"
-                      onClick={onToggleCollapse}
-                      className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-sidebar-accent/10"
-                    >
-                      <PanelLeftOpen className="h-4 w-4" />
-                      <span>Expandir menu</span>
-                    </button>
                     <button
                       type="button"
                       onClick={signOut}
                       className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-sidebar-accent/10"
                     >
-                      <LogOut className="h-4 w-4" />
+                      <LogOut className="h-5 w-5" />
                       <span>Sair</span>
                     </button>
                   </div>
@@ -435,6 +435,24 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
               </HoverCard>
             ) : (
               <div className="flex items-center justify-center gap-3">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={onToggleCollapse}
+                      aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+                      className="flex items-center justify-center p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                    >
+                      {collapsed ? (
+                        <PanelLeftOpen className="h-5 w-5" />
+                      ) : (
+                        <PanelLeftClose className="h-5 w-5" />
+                      )}
+                      <span className="sr-only">{collapsed ? "Expandir menu" : "Recolher menu"}</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">{collapsed ? "Expandir" : "Recolher"}</TooltipContent>
+                </Tooltip>
                 {userRole === "admin" && (
                   <>
                     <Tooltip>
@@ -469,24 +487,6 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
                     </Tooltip>
                   </>
                 )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={onToggleCollapse}
-                      aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-                      className="flex items-center justify-center p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-                    >
-                      {collapsed ? (
-                        <PanelLeftOpen className="h-5 w-5" />
-                      ) : (
-                        <PanelLeftClose className="h-5 w-5" />
-                      )}
-                      <span className="sr-only">{collapsed ? "Expandir menu" : "Recolher menu"}</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">{collapsed ? "Expandir" : "Recolher"}</TooltipContent>
-                </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
