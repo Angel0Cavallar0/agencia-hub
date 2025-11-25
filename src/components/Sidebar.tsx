@@ -351,7 +351,12 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
       </nav>
 
       {/* Footer com Logs, Configurações e Sair */}
-      <div className={cn("px-4 py-2", collapsed ? "px-2" : undefined)}>
+      <div
+        className={cn(
+          "border-t border-[#006B52] px-4 py-2",
+          collapsed ? "px-2" : undefined
+        )}
+      >
         <div className="flex flex-col gap-3">
           <button
             type="button"
