@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Sidebar } from "./Sidebar";
 
 interface LayoutProps {
@@ -11,7 +11,18 @@ interface LayoutProps {
 }
 
 export const Layout = ({ children, noPadding = false }: LayoutProps) => {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const stored = window.localStorage.getItem("sidebar-collapsed");
+    return stored === "true";
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      "sidebar-collapsed",
+      isSidebarCollapsed ? "true" : "false"
+    );
+  }, [isSidebarCollapsed]);
 
   const mainPadding = noPadding ? "" : "p-8";
   const mainOverflow = noPadding ? "overflow-hidden" : "overflow-y-auto";
