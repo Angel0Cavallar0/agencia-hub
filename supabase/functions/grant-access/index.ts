@@ -13,6 +13,7 @@ interface GrantAccessRequest {
   crmAccess: boolean;
   crmAccessLevel: string;
   wppAccess: boolean;
+  password: string;
 }
 
 serve(async (req) => {
@@ -23,6 +24,17 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
+    const supabaseUser = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: {
+        headers: { Authorization: authHeader }
+      }
+    });
     
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -31,9 +43,24 @@ serve(async (req) => {
       }
     });
 
-    const { email, colaboradorId, role, crmAccess, crmAccessLevel, wppAccess }: GrantAccessRequest = await req.json();
+    const { email, colaboradorId, role, crmAccess, crmAccessLevel, wppAccess, password }: GrantAccessRequest = await req.json();
 
     console.log('Granting access for:', { email, colaboradorId, role });
+
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+
+    if (userError || !user) {
+      throw new Error('Unauthorized');
+    }
+
+    const { data: authData, error: authError } = await supabaseUser.auth.signInWithPassword({
+      email: user.email!,
+      password: password
+    });
+
+    if (authError || !authData.user) {
+      throw new Error('Senha incorreta');
+    }
 
     // Create user invitation
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
@@ -95,12 +122,12 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Error in grant-access function:', error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error.message || 'Erro ao conceder acesso',
         details: error.toString()
       }),
       {
-        status: 500,
+        status: error.message === 'Senha incorreta' ? 403 : 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );

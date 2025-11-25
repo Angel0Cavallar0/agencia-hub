@@ -143,6 +143,9 @@ export default function ColaboradorDetalhes() {
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
   const [isGrantingAccess, setIsGrantingAccess] = useState(false);
+  const [showGrantDialog, setShowGrantDialog] = useState(false);
+  const [grantPassword, setGrantPassword] = useState("");
+  const [grantError, setGrantError] = useState<string | null>(null);
   const [isRevokingAccess, setIsRevokingAccess] = useState(false);
   const [showRevokeDialog, setShowRevokeDialog] = useState(false);
   const [revokePassword, setRevokePassword] = useState("");
@@ -798,7 +801,13 @@ export default function ColaboradorDetalhes() {
       return;
     }
 
+    if (!grantPassword) {
+      setGrantError("Informe sua senha para liberar o acesso");
+      return;
+    }
+
     setIsGrantingAccess(true);
+    setGrantError(null);
     try {
       const { data, error } = await supabase.functions.invoke('grant-access', {
         body: {
@@ -808,6 +817,7 @@ export default function ColaboradorDetalhes() {
           crmAccess: binaryToBoolean(crmAccess),
           crmAccessLevel: crmLevel,
           wppAccess: binaryToBoolean(wppAccess),
+          password: grantPassword,
         }
       });
 
@@ -820,14 +830,21 @@ export default function ColaboradorDetalhes() {
         });
         await fetchUserRoleData(data.userId, role);
         toast.success('Convite enviado! O colaborador receberá um email para definir a senha.');
+        setShowGrantDialog(false);
+        setGrantPassword("");
       }
     } catch (error: any) {
-      await logger.error(
-        "Erro ao conceder acesso",
-        "COLAB_GRANT_ACCESS_ERROR",
-        buildErrorContext(error, { colaboradorId: colaborador.id_colaborador })
-      );
-      toast.error(error.message || 'Erro ao enviar convite de acesso');
+      const message = error.message || 'Erro ao enviar convite de acesso';
+      setGrantError(message);
+
+      if (message !== 'Senha incorreta') {
+        await logger.error(
+          "Erro ao conceder acesso",
+          "COLAB_GRANT_ACCESS_ERROR",
+          buildErrorContext(error, { colaboradorId: colaborador.id_colaborador })
+        );
+        toast.error(message);
+      }
     } finally {
       setIsGrantingAccess(false);
     }
@@ -1285,7 +1302,11 @@ export default function ColaboradorDetalhes() {
                     <Button
                       type="button"
                       className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
-                      onClick={handleGrantAccess}
+                      onClick={() => {
+                        setGrantPassword("");
+                        setGrantError(null);
+                        setShowGrantDialog(true);
+                      }}
                       disabled={isGrantingAccess || !colaborador.email_corporativo}
                     >
                       {isGrantingAccess ? "Enviando..." : "Liberar Acesso"}
@@ -1514,6 +1535,48 @@ export default function ColaboradorDetalhes() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Confirmar Desligamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação para liberar acesso */}
+      <AlertDialog open={showGrantDialog} onOpenChange={(open) => {
+        setShowGrantDialog(open);
+        if (!open) {
+          setGrantPassword("");
+          setGrantError(null);
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar liberação de acesso</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>Confirme sua senha para convidar o colaborador a acessar o sistema.</p>
+              <div className="space-y-2 pt-2">
+                <Label htmlFor="grant-password">Digite sua senha para confirmar</Label>
+                <Input
+                  id="grant-password"
+                  type="password"
+                  value={grantPassword}
+                  onChange={(e) => setGrantPassword(e.target.value)}
+                  placeholder="Sua senha"
+                  autoComplete="current-password"
+                />
+                {grantError && (
+                  <p className="text-sm text-destructive">{grantError}</p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isGrantingAccess}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleGrantAccess}
+              disabled={isGrantingAccess || !grantPassword}
+              className="bg-green-600 text-white hover:bg-green-700"
+            >
+              {isGrantingAccess ? "Enviando..." : "Confirmar Liberação"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
