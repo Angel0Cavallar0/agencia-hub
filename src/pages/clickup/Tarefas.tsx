@@ -25,54 +25,83 @@ export default function ClickupTarefas() {
   const [filtroCliente, setFiltroCliente] = useState<string>("");
   const [filtroColaborador, setFiltroColaborador] = useState<string>("");
   const [filtroStatus, setFiltroStatus] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
   }, []);
 
   const fetchData = async () => {
-    const [tarefasRes, clientesRes, colaboradoresRes, pastasRes] = await Promise.all([
-      supabase
-        .from("informacoes_tasks_clickup")
-        .select(
-          "id_subtask, nome_subtask, status, prioridade, id_colaborador_clickup, nome_colaborador, nome_lista, nome_pasta, data_entrega, id_pasta"
-        ),
-      supabase.from("clientes_infos").select("id_cliente, nome_cliente"),
-      supabase
-        .from("colaborador")
-        .select("id_clickup, nome, sobrenome"),
-      supabase
-        .from("clientes_pastas_clickup")
-        .select("id_pasta, id_cliente, nome_cliente"),
-    ]);
+    setLoading(true);
+    setError(null);
 
-    const pastaMap = (pastasRes.data || []).reduce(
-      (acc, pasta) => {
-        if (pasta.id_pasta) {
-          acc[pasta.id_pasta] = {
-            id_cliente: pasta.id_cliente,
-            nome_cliente: pasta.nome_cliente,
-          };
-        }
-        return acc;
-      },
-      {} as Record<string, { id_cliente: string | null; nome_cliente: string | null }>
-    );
+    try {
+      const [tarefasRes, clientesRes, colaboradoresRes, pastasRes] = await Promise.all([
+        supabase
+          .from("informacoes_tasks_clickup")
+          .select(
+            "id_subtask, nome_subtask, status, prioridade, id_colaborador_clickup, nome_colaborador, nome_lista, nome_pasta, data_entrega, id_pasta"
+          ),
+        supabase.from("clientes_infos").select("id_cliente, nome_cliente"),
+        supabase
+          .from("colaborador")
+          .select("id_clickup, nome, sobrenome"),
+        supabase
+          .from("clientes_pastas_clickup")
+          .select("id_pasta, id_cliente, nome_cliente"),
+      ]);
 
-    if (tarefasRes.data) {
-      setTarefas(
-        tarefasRes.data.map((tarefa) => {
-          const info = tarefa.id_pasta ? pastaMap[tarefa.id_pasta] : undefined;
-          return {
-            ...tarefa,
-            clienteId: info?.id_cliente || null,
-            clienteNome: info?.nome_cliente || null,
-          };
-        })
+      const errors = [
+        tarefasRes.error,
+        clientesRes.error,
+        colaboradoresRes.error,
+        pastasRes.error,
+      ].filter(Boolean);
+
+      if (errors.length > 0) {
+        console.error("Erro ao carregar dados do ClickUp:", errors);
+        throw new Error("Não foi possível carregar as informações do ClickUp.");
+      }
+
+      const pastaMap = (pastasRes.data || []).reduce(
+        (acc, pasta) => {
+          if (pasta.id_pasta) {
+            acc[pasta.id_pasta] = {
+              id_cliente: pasta.id_cliente,
+              nome_cliente: pasta.nome_cliente,
+            };
+          }
+          return acc;
+        },
+        {} as Record<string, { id_cliente: string | null; nome_cliente: string | null }>
       );
+
+      if (tarefasRes.data) {
+        setTarefas(
+          tarefasRes.data.map((tarefa) => {
+            const info = tarefa.id_pasta ? pastaMap[tarefa.id_pasta] : undefined;
+            return {
+              ...tarefa,
+              clienteId: info?.id_cliente || null,
+              clienteNome: info?.nome_cliente || null,
+            };
+          })
+        );
+      }
+      if (clientesRes.data) setClientes(clientesRes.data);
+      if (colaboradoresRes.data) setColaboradores(colaboradoresRes.data);
+    } catch (err) {
+      console.error(err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível carregar as tarefas do ClickUp no momento."
+      );
+      setTarefas([]);
+    } finally {
+      setLoading(false);
     }
-    if (clientesRes.data) setClientes(clientesRes.data);
-    if (colaboradoresRes.data) setColaboradores(colaboradoresRes.data);
   };
 
   const statusOptions = Array.from(new Set(tarefas.map((t) => t.status).filter(Boolean)));
@@ -106,6 +135,12 @@ export default function ClickupTarefas() {
           <h1 className="text-3xl font-bold tracking-tight">Tarefas ClickUp</h1>
           <p className="text-muted-foreground">Visualize todas as tarefas do ClickUp</p>
         </div>
+
+        {error && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+            {error}
+          </div>
+        )}
 
         <div className="flex gap-4 flex-wrap">
           <Select value={filtroCliente} onValueChange={setFiltroCliente}>
@@ -166,33 +201,47 @@ export default function ClickupTarefas() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTarefas.map((tarefa) => (
-                <TableRow
-                  key={tarefa.id_subtask}
-                  className={isOverdue(tarefa.data_entrega, tarefa.status) ? "bg-destructive/10" : ""}
-                >
-                  <TableCell className="font-medium">{tarefa.nome_subtask}</TableCell>
-                  <TableCell>{tarefa.clienteNome || "-"}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{tarefa.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {tarefa.prioridade && (
-                      <Badge variant={getPrioridadeBadge(tarefa.prioridade)}>
-                        {tarefa.prioridade}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>{tarefa.nome_colaborador}</TableCell>
-                  <TableCell>{tarefa.nome_lista}</TableCell>
-                  <TableCell>{tarefa.nome_pasta}</TableCell>
-                  <TableCell>
-                    {tarefa.data_entrega
-                      ? new Date(tarefa.data_entrega).toLocaleDateString("pt-BR")
-                      : "-"}
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
+                    Carregando tarefas do ClickUp...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : filteredTarefas.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
+                    Nenhuma tarefa encontrada com os filtros selecionados.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredTarefas.map((tarefa) => (
+                  <TableRow
+                    key={tarefa.id_subtask}
+                    className={isOverdue(tarefa.data_entrega, tarefa.status) ? "bg-destructive/10" : ""}
+                  >
+                    <TableCell className="font-medium">{tarefa.nome_subtask}</TableCell>
+                    <TableCell>{tarefa.clienteNome || "-"}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{tarefa.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {tarefa.prioridade && (
+                        <Badge variant={getPrioridadeBadge(tarefa.prioridade)}>
+                          {tarefa.prioridade}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>{tarefa.nome_colaborador}</TableCell>
+                    <TableCell>{tarefa.nome_lista}</TableCell>
+                    <TableCell>{tarefa.nome_pasta}</TableCell>
+                    <TableCell>
+                      {tarefa.data_entrega
+                        ? new Date(tarefa.data_entrega).toLocaleDateString("pt-BR")
+                        : "-"}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
