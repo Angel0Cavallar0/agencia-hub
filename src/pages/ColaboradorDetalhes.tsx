@@ -801,6 +801,11 @@ export default function ColaboradorDetalhes() {
       return;
     }
 
+    if (!user?.email) {
+      setGrantError("Não foi possível validar o usuário logado.");
+      return;
+    }
+
     if (!grantPassword) {
       setGrantError("Informe sua senha para liberar o acesso");
       return;
@@ -809,6 +814,15 @@ export default function ColaboradorDetalhes() {
     setIsGrantingAccess(true);
     setGrantError(null);
     try {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: grantPassword,
+      });
+
+      if (authError) {
+        throw authError;
+      }
+
       const { data, error } = await supabase.functions.invoke('grant-access', {
         body: {
           email: colaborador.email_corporativo,
@@ -838,18 +852,25 @@ export default function ColaboradorDetalhes() {
         setGrantPassword("");
       }
     } catch (error: any) {
-      const message = error.message || 'Erro ao enviar convite de acesso';
-      setGrantError(message);
+      const rawMessage = typeof error?.message === "string" ? error.message : null;
+      const isInvalidPassword =
+        rawMessage?.toLowerCase().includes("invalid login credentials") ||
+        rawMessage === "Senha incorreta";
+      const displayMessage = isInvalidPassword
+        ? "Senha incorreta. Tente novamente."
+        : rawMessage || "Erro ao enviar convite de acesso";
 
-      if (message === 'Senha incorreta') {
-        toast.error('Senha incorreta. Tente novamente.');
+      setGrantError(displayMessage);
+
+      if (isInvalidPassword) {
+        toast.error(displayMessage);
       } else {
         await logger.error(
           "Erro ao conceder acesso",
           "COLAB_GRANT_ACCESS_ERROR",
           buildErrorContext(error, { colaboradorId: colaborador.id_colaborador })
         );
-        toast.error(message);
+        toast.error(displayMessage);
       }
     } finally {
       setIsGrantingAccess(false);
