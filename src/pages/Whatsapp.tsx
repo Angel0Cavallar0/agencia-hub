@@ -25,6 +25,7 @@ type ChatMessage = {
   video_url?: string | null;
   audio_url?: string | null;
   audio_transcripiton?: string | null;
+  audio_transcription?: string | null;
   document_url?: string | null;
   reference_message_id: string | null;
   created_at: string | null;
@@ -45,6 +46,7 @@ type GroupMessage = {
   video_url?: string | null;
   audio_url?: string | null;
   audio_transcripiton?: string | null;
+  audio_transcription?: string | null;
   document_url?: string | null;
   direcao: string | null;
   encaminhada: boolean | null;
@@ -300,7 +302,7 @@ export default function Whatsapp() {
   useEffect(() => {
     if (!messagesEndRef.current) return;
     messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-  }, [currentMessages.length, selectedChat]);
+  }, [currentMessages, selectedChat]);
 
   const senderName = useMemo(() => {
     if (senderProfile?.apelido) return senderProfile.apelido;
@@ -471,7 +473,8 @@ export default function Whatsapp() {
       : 0;
 
     const isActive = activeAudioId === message.message_id;
-    const transcription = message.audio_transcripiton?.trim();
+    const transcription =
+      message.audio_transcripiton?.trim() || message.audio_transcription?.trim();
 
     return (
       <div
