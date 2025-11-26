@@ -147,6 +147,14 @@ export default function Whatsapp() {
 
     fetchMessages();
 
+    const addUniqueMessage = (newMessage: WhatsappMessage) => {
+      setMessages((prev) => {
+        const exists = prev.some((message) => message.message_id === newMessage.message_id);
+        if (exists) return prev;
+        return [...prev, newMessage];
+      });
+    };
+
     const chatChannel = supabase
       .channel("chat-messages-changes")
       .on(
@@ -158,7 +166,7 @@ export default function Whatsapp() {
         },
         (payload) => {
           console.log("Nova mensagem recebida:", payload);
-          setMessages((prev) => [...prev, { ...(payload.new as ChatMessage), source: "chat" }]);
+          addUniqueMessage({ ...(payload.new as ChatMessage), source: "chat" });
         }
       )
       .subscribe();
@@ -174,7 +182,7 @@ export default function Whatsapp() {
         },
         (payload) => {
           console.log("Nova mensagem de grupo recebida:", payload);
-          setMessages((prev) => [...prev, { ...(payload.new as GroupMessage), source: "group" }]);
+          addUniqueMessage({ ...(payload.new as GroupMessage), source: "group" });
         }
       )
       .subscribe();
@@ -321,7 +329,11 @@ export default function Whatsapp() {
       }
 
       sentMessage = newRecord;
-      setMessages((prev) => [...prev, newRecord]);
+      setMessages((prev) => {
+        const exists = prev.some((message) => message.message_id === newRecord.message_id);
+        if (exists) return prev;
+        return [...prev, newRecord];
+      });
       setSelectedChat(newRecord.group_id);
       setSelectedChatSource("group");
     } else {
@@ -350,7 +362,11 @@ export default function Whatsapp() {
       }
 
       sentMessage = newRecord;
-      setMessages((prev) => [...prev, newRecord]);
+      setMessages((prev) => {
+        const exists = prev.some((message) => message.message_id === newRecord.message_id);
+        if (exists) return prev;
+        return [...prev, newRecord];
+      });
       setSelectedChat((current) => current ?? newRecord.chat_id);
       setSelectedChatSource("chat");
     }
