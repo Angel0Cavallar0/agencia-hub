@@ -24,6 +24,7 @@ type ChatMessage = {
   image_url?: string | null;
   video_url?: string | null;
   audio_url?: string | null;
+  audio_transcripiton?: string | null;
   document_url?: string | null;
   reference_message_id: string | null;
   created_at: string | null;
@@ -43,6 +44,7 @@ type GroupMessage = {
   image_url?: string | null;
   video_url?: string | null;
   audio_url?: string | null;
+  audio_transcripiton?: string | null;
   document_url?: string | null;
   direcao: string | null;
   encaminhada: boolean | null;
@@ -469,6 +471,7 @@ export default function Whatsapp() {
       : 0;
 
     const isActive = activeAudioId === message.message_id;
+    const transcription = message.audio_transcripiton?.trim();
 
     return (
       <div
@@ -526,6 +529,11 @@ export default function Whatsapp() {
             </span>
           </div>
         </div>
+        {transcription && (
+          <p className="mt-3 text-sm leading-relaxed text-foreground/80">
+            {transcription}
+          </p>
+        )}
       </div>
     );
   };
