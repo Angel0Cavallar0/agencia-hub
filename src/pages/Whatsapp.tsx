@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,7 +70,12 @@ export default function Whatsapp() {
   const [newMessage, setNewMessage] = useState("");
   const [webhookUrl, setWebhookUrl] = useState<string>("");
   const [senderProfile, setSenderProfile] = useState<SenderProfile | null>(null);
+  const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
+  const [audioStates, setAudioStates] = useState<
+    Record<string, { currentTime: number; duration: number; isPlaying: boolean }>
+  >({});
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const storedWebhook = localStorage.getItem(WEBHOOK_KEY);
@@ -318,6 +323,209 @@ export default function Whatsapp() {
     });
   };
 
+  const formatSeconds = (value: number) => {
+    if (!Number.isFinite(value) || value < 0) return "0:00";
+    const minutes = Math.floor(value / 60);
+    const seconds = Math.floor(value % 60)
+      .toString()
+      .padStart(2, "0");
+    return `${minutes}:${seconds}`;
+  };
+
+  const handleAudioStateUpdate = (messageId: string, updater: Partial<{
+    currentTime: number;
+    duration: number;
+    isPlaying: boolean;
+  }>) => {
+    setAudioStates((prev) => ({
+      ...prev,
+      [messageId]: {
+        currentTime: updater.currentTime ?? prev[messageId]?.currentTime ?? 0,
+        duration: updater.duration ?? prev[messageId]?.duration ?? 0,
+        isPlaying: updater.isPlaying ?? prev[messageId]?.isPlaying ?? false,
+      },
+    }));
+  };
+
+  const handlePlayPause = async (message: WhatsappMessage) => {
+    if (!message.audio_url) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const currentState = audioStates[message.message_id] ?? {
+      currentTime: 0,
+      duration: 0,
+      isPlaying: false,
+    };
+
+    if (activeAudioId && activeAudioId !== message.message_id) {
+      handleAudioStateUpdate(activeAudioId, { isPlaying: false });
+    }
+
+    // If the same audio is active, toggle play/pause
+    if (activeAudioId === message.message_id) {
+      if (!audio.paused) {
+        audio.pause();
+        handleAudioStateUpdate(message.message_id, { isPlaying: false });
+      } else {
+        try {
+          await audio.play();
+          handleAudioStateUpdate(message.message_id, { isPlaying: true });
+        } catch (err) {
+          console.error("Erro ao reproduzir áudio:", err);
+          handleAudioStateUpdate(message.message_id, { isPlaying: false });
+        }
+      }
+      return;
+    }
+
+    audio.pause();
+    audio.src = message.audio_url;
+    audio.currentTime = 0;
+    setActiveAudioId(message.message_id);
+    handleAudioStateUpdate(message.message_id, {
+      currentTime: 0,
+      duration: currentState.duration,
+      isPlaying: true,
+    });
+
+    try {
+      await audio.play();
+    } catch (err) {
+      console.error("Erro ao reproduzir áudio:", err);
+      handleAudioStateUpdate(message.message_id, { isPlaying: false });
+    }
+  };
+
+  const handleSeek = (
+    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
+    message: WhatsappMessage
+  ) => {
+    if (!message.audio_url) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (activeAudioId && activeAudioId !== message.message_id) {
+      handleAudioStateUpdate(activeAudioId, { isPlaying: false });
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const percentage = Math.min(Math.max(clickX / rect.width, 0), 1);
+    const knownDuration =
+      (audioStates[message.message_id]?.duration ?? 0) ||
+      (audio.src === message.audio_url ? audio.duration : 0);
+
+    if (audio.src !== message.audio_url) {
+      audio.src = message.audio_url;
+      setActiveAudioId(message.message_id);
+      handleAudioStateUpdate(message.message_id, { isPlaying: false });
+    }
+
+    if (!knownDuration || Number.isNaN(knownDuration)) return;
+
+    const newTime = knownDuration * percentage;
+    audio.currentTime = newTime;
+    handleAudioStateUpdate(message.message_id, { currentTime: newTime });
+  };
+
+  const handleAudioMetadata = () => {
+    const audio = audioRef.current;
+    if (!audio || !activeAudioId) return;
+    handleAudioStateUpdate(activeAudioId, { duration: audio.duration });
+  };
+
+  const handleAudioTimeUpdate = () => {
+    const audio = audioRef.current;
+    if (!audio || !activeAudioId) return;
+    handleAudioStateUpdate(activeAudioId, {
+      currentTime: audio.currentTime,
+      duration: audio.duration,
+      isPlaying: !audio.paused,
+    });
+  };
+
+  const handleAudioEnded = () => {
+    if (!activeAudioId) return;
+    handleAudioStateUpdate(activeAudioId, { currentTime: 0, isPlaying: false });
+    setActiveAudioId(null);
+  };
+
+  const renderAudioAttachment = (message: WhatsappMessage) => {
+    if (!message.audio_url) return null;
+
+    const audioState = audioStates[message.message_id] ?? {
+      currentTime: 0,
+      duration: 0,
+      isPlaying: false,
+    };
+
+    const progress = audioState.duration
+      ? Math.min((audioState.currentTime / audioState.duration) * 100, 100)
+      : 0;
+
+    const isActive = activeAudioId === message.message_id;
+
+    return (
+      <div
+        key={`${message.message_id}-audio`}
+        className="mt-2 rounded-md bg-background/70 p-3"
+      >
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => handlePlayPause(message)}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition hover:bg-primary/20"
+          >
+            {audioState.isPlaying && isActive ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <rect x="6" y="4" width="4" height="16" rx="1" />
+                <rect x="14" y="4" width="4" height="16" rx="1" />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            )}
+          </button>
+
+          <div className="flex flex-1 items-center gap-3">
+            <div
+              className="relative h-2 flex-1 cursor-pointer rounded-full bg-muted"
+              onClick={(event) => handleSeek(event, message)}
+            >
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-primary"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <span className="w-14 text-right text-xs text-muted-foreground">
+              {`${formatSeconds(audioState.currentTime)} / ${formatSeconds(audioState.duration)}`}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderAttachments = (message: WhatsappMessage) => {
     const attachments: JSX.Element[] = [];
 
@@ -344,28 +552,8 @@ export default function Whatsapp() {
     }
 
     if (message.audio_url) {
-      attachments.push(
-        <div
-          key={`${message.message_id}-audio`}
-          className="mt-2 flex items-center gap-2 rounded-md bg-background/70 p-2"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-5 w-5"
-          >
-            <path d="M9 18V5l12-2v13" />
-            <circle cx="6" cy="18" r="3" />
-            <circle cx="18" cy="16" r="3" />
-          </svg>
-          <audio src={message.audio_url} controls className="w-full" />
-        </div>
-      );
+      const audioAttachment = renderAudioAttachment(message);
+      if (audioAttachment) attachments.push(audioAttachment);
     }
 
     if (message.document_url) {
@@ -519,9 +707,20 @@ export default function Whatsapp() {
   }, [chats, selectedChat, selectedChatSource]);
 
   return (
-    <Layout noPadding>
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="grid h-full min-h-0 lg:grid-cols-[340px_1fr]">
+    <>
+      <audio
+        ref={audioRef}
+        className="hidden"
+        onTimeUpdate={handleAudioTimeUpdate}
+        onLoadedMetadata={handleAudioMetadata}
+        onEnded={handleAudioEnded}
+        onPause={() => {
+          if (activeAudioId) handleAudioStateUpdate(activeAudioId, { isPlaying: false });
+        }}
+      />
+      <Layout noPadding>
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="grid h-full min-h-0 lg:grid-cols-[340px_1fr]">
           {/* Sidebar de conversas */}
           <div className="flex min-h-0 flex-col border-r border-border bg-background">
             <div className="sticky top-0 z-10 border-b border-border bg-muted/30 p-4">
@@ -710,6 +909,7 @@ export default function Whatsapp() {
           </div>
         </div>
       </div>
-    </Layout>
+      </Layout>
+    </>
   );
 }
