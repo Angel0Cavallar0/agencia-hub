@@ -68,7 +68,35 @@ export default function Whatsapp() {
     const storedWebhook = localStorage.getItem(WEBHOOK_KEY);
     if (storedWebhook) {
       setWebhookUrl(storedWebhook);
+      return;
     }
+
+    const loadGlobalWebhook = async () => {
+      const { data, error } = await supabase
+        .from("global_settings")
+        .select("value")
+        .eq("key", "whatsapp_webhook")
+        .maybeSingle();
+
+      if (error) {
+        console.error("Erro ao carregar webhook global do WhatsApp:", error);
+        return;
+      }
+
+      const webhookValue =
+        typeof data?.value === "string"
+          ? data.value
+          : typeof (data?.value as any)?.url === "string"
+            ? (data?.value as any).url
+            : "";
+
+      if (webhookValue) {
+        setWebhookUrl(webhookValue);
+        localStorage.setItem(WEBHOOK_KEY, webhookValue);
+      }
+    };
+
+    loadGlobalWebhook();
   }, []);
 
   useEffect(() => {
