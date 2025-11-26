@@ -1,5 +1,6 @@
 import {
   FileText,
+  Home,
   LayoutDashboard,
   Users,
   UserCog,
@@ -24,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 
 const mainMenuItems = [
+  { icon: Home, label: "Home", path: "/home" },
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: Users, label: "Clientes", path: "/clientes" },
   { icon: UserCog, label: "Colaboradores", path: "/colaboradores" },
