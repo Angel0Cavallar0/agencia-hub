@@ -28,6 +28,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const validRoles: AppRole[] = ["admin", "gerente", "supervisor", "assistente", "geral"];
   const defaultAllowedRoles: AppRole[] = ["admin", "supervisor"];
 
+  const normalizeRole = (role: unknown): AppRole | null => {
+    if (typeof role !== "string") return null;
+
+    const normalized = role.trim().toLowerCase();
+    return validRoles.find((value) => value === normalized) ?? null;
+  };
+
   const fetchUserRole = async (userId: string): Promise<AppRole | null> => {
     const { data, error } = await supabase
       .from("user_roles")
@@ -40,19 +47,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return null;
     }
 
-    return (data?.role as AppRole | null) || null;
+    return normalizeRole(data?.role);
   };
 
   const parseAllowedRoles = (value: unknown): AppRole[] => {
-    if (Array.isArray(value)) {
-      const validValues = value.filter(
-        (item): item is AppRole => typeof item === "string" && validRoles.includes(item)
-      );
+    const tryNormalizeArray = (input: unknown): AppRole[] => {
+      if (!Array.isArray(input)) return [];
+
+      const validValues = input
+        .map((item) => normalizeRole(item))
+        .filter((item): item is AppRole => Boolean(item));
+
       return Array.from(new Set(validValues));
+    };
+
+    const stringValue = typeof value === "string" ? value.trim() : null;
+
+    if (stringValue) {
+      try {
+        const parsed = JSON.parse(stringValue);
+        const fromJson = tryNormalizeArray(parsed);
+        if (fromJson.length) return fromJson;
+      } catch {
+        const splitValues = stringValue
+          .split(",")
+          .map((item) => normalizeRole(item))
+          .filter((item): item is AppRole => Boolean(item));
+
+        if (splitValues.length) return Array.from(new Set(splitValues));
+      }
     }
 
-    if (typeof value === "string" && validRoles.includes(value as AppRole)) {
-      return [value as AppRole];
+    const arrayValues = tryNormalizeArray(value);
+    if (arrayValues.length) return arrayValues;
+
+    if (stringValue) {
+      const normalized = normalizeRole(stringValue);
+      return normalized ? [normalized] : [];
+    }
+
+    if (value && typeof value === "object") {
+      const maybeRoles =
+        "roles" in value
+          ? (value as { roles?: unknown }).roles
+          : "allowed_access_levels" in value
+            ? (value as { allowed_access_levels?: unknown }).allowed_access_levels
+            : null;
+
+      const normalizedFromObject = tryNormalizeArray(maybeRoles);
+      if (normalizedFromObject.length) return normalizedFromObject;
     }
 
     return [];

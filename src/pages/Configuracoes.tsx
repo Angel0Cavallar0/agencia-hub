@@ -99,6 +99,12 @@ export default function Configuracoes() {
   const [isLoadingAccessLevels, setIsLoadingAccessLevels] = useState(true);
   const [isSavingAccessLevels, setIsSavingAccessLevels] = useState(false);
 
+  const normalizeRole = (role: unknown): AccessLevel | null => {
+    if (typeof role !== "string") return null;
+    const normalized = role.trim().toLowerCase();
+    return accessLevelOptions.find((option) => option.value === normalized)?.value ?? null;
+  };
+
   useEffect(() => {
     const loadWebhook = async () => {
       try {
@@ -194,18 +200,51 @@ export default function Configuracoes() {
 
   useEffect(() => {
     const parseAccessLevels = (value: unknown): AccessLevel[] => {
-      if (Array.isArray(value)) {
-        const validValues = value.filter(
-          (item): item is AccessLevel =>
-            typeof item === "string" && accessLevelOptions.some((option) => option.value === item)
-        );
-        return Array.from(new Set(validValues));
+      const normalizeArray = (input: unknown): AccessLevel[] => {
+        if (!Array.isArray(input)) return [];
+
+        const normalized = input
+          .map((item) => normalizeRole(item))
+          .filter((item): item is AccessLevel => Boolean(item));
+
+        return Array.from(new Set(normalized));
+      };
+
+      const stringValue = typeof value === "string" ? value.trim() : null;
+
+      if (stringValue) {
+        try {
+          const parsed = JSON.parse(stringValue);
+          const parsedArray = normalizeArray(parsed);
+          if (parsedArray.length) return parsedArray;
+        } catch {
+          const splitValues = stringValue
+            .split(",")
+            .map((item) => normalizeRole(item))
+            .filter((item): item is AccessLevel => Boolean(item));
+
+          if (splitValues.length) return Array.from(new Set(splitValues));
+        }
       }
 
-      if (
-        typeof value === "string" && accessLevelOptions.some((option) => option.value === value)
-      ) {
-        return [value as AccessLevel];
+      const arrayValues = normalizeArray(value);
+      if (arrayValues.length) return arrayValues;
+
+      if (stringValue) {
+        const normalized = normalizeRole(stringValue);
+        return normalized ? [normalized] : [];
+      }
+
+      if (value && typeof value === "object") {
+        const maybeRoles =
+          "roles" in value
+            ? (value as { roles?: unknown }).roles
+            : "allowed_access_levels" in value
+              ? (value as { allowed_access_levels?: unknown }).allowed_access_levels
+              : null;
+
+        const normalizedFromObject = normalizeArray(maybeRoles);
+        if (normalizedFromObject.length) return normalizedFromObject;
       }
 
       return [];
