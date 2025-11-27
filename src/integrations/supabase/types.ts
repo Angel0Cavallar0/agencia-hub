@@ -612,6 +612,7 @@ export type Database = {
           id: string
           role: Database["public"]["Enums"]["app_role"] | null
           user_id: string
+          n8n_access?: boolean | null
           wpp_acess: boolean | null
         }
         Insert: {
@@ -623,6 +624,7 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"] | null
           user_id: string
+          n8n_access?: boolean | null
           wpp_acess?: boolean | null
         }
         Update: {
@@ -634,6 +636,7 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"] | null
           user_id?: string
+          n8n_access?: boolean | null
           wpp_acess?: boolean | null
         }
         Relationships: []

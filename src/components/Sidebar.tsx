@@ -12,6 +12,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   MoreVertical,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -56,6 +57,7 @@ type SidebarProfile = {
 type UserPermissions = {
   crm_access: boolean;
   wpp_acess: boolean;
+  n8n_access: boolean;
 };
 
 type SidebarProps = {
@@ -75,6 +77,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
   const [permissions, setPermissions] = useState<UserPermissions>({
     crm_access: false,
     wpp_acess: false,
+    n8n_access: false,
   });
 
   useEffect(() => {
@@ -84,7 +87,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
       if (!user?.id) {
         if (isActive) {
           setProfile(null);
-          setPermissions({ crm_access: false, wpp_acess: false });
+          setPermissions({ crm_access: false, wpp_acess: false, n8n_access: false });
         }
         return;
       }
@@ -131,9 +134,17 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
             ? (userRoles as { crm_acess?: boolean }).crm_acess ?? false
             : false;
 
+        const resolvedN8nAccess =
+          typeof (userRoles as { n8n_access?: boolean }).n8n_access === "boolean"
+            ? (userRoles as { n8n_access?: boolean }).n8n_access ?? false
+            : typeof (userRoles as { n8n_acess?: boolean }).n8n_acess === "boolean"
+              ? (userRoles as { n8n_acess?: boolean }).n8n_acess ?? false
+              : resolvedCrmAccess || resolvedWppAccess;
+
         setPermissions({
           crm_access: resolvedCrmAccess,
           wpp_acess: resolvedWppAccess,
+          n8n_access: resolvedN8nAccess,
         });
       }
     };
@@ -332,6 +343,22 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
           >
             <Building2 className={iconClassName} />
             {!collapsed && <span className="font-medium">CRM</span>}
+          </NavLink>
+        )}
+
+        {/* n8n - Condicional baseado em permissões */}
+        {permissions.n8n_access && (
+          <NavLink
+            to="/n8n"
+            end
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              collapsed ? "justify-center" : undefined
+            )}
+            activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+          >
+            <Workflow className={iconClassName} />
+            {!collapsed && <span className="font-medium">n8n</span>}
           </NavLink>
         )}
 
