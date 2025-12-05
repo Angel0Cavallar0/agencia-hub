@@ -6,7 +6,12 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, userRole, loading } = useAuth();
+  const { user, userRole, minAccessLevel, loading } = useAuth();
+
+  const roleOrder = ["basic", "assistent", "supervisor", "manager", "admin"] as const;
+  const isRoleAllowed = (role: string) =>
+    roleOrder.indexOf(role as (typeof roleOrder)[number]) >=
+    roleOrder.indexOf(minAccessLevel);
 
   if (loading) {
     return (
@@ -19,8 +24,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  const allowedRoles = ["admin", "manager", "supervisor", "assistent"];
-  if (!user || !userRole || !allowedRoles.includes(userRole)) {
+  if (!user || !userRole || !isRoleAllowed(userRole)) {
     return <Navigate to="/login" replace />;
   }
 

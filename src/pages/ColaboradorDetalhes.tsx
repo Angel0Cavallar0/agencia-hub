@@ -187,36 +187,36 @@ export default function ColaboradorDetalhes() {
     },
   ];
 
-  const roleOptions = [
+  const roleOptions: { value: AccessLevel; label: string; description: string }[] = [
     {
-      value: "admin" as const,
+      value: "admin",
       label: "Administrador",
       description: "Acesso completo a todas as seções e configurações.",
     },
     {
-      value: "gerente" as const,
+      value: "manager",
       label: "Gerente",
       description: "Gerencia equipes, aprova processos e acompanha indicadores.",
     },
     {
-      value: "supervisor" as const,
+      value: "supervisor",
       label: "Supervisor",
       description: "Acompanha o desempenho da equipe e distribui atividades.",
     },
     {
-      value: "assistente" as const,
+      value: "assistent",
       label: "Assistente",
       description: "Atua no suporte operacional com acessos controlados.",
     },
     {
-      value: "geral" as const,
+      value: "basic",
       label: "Básico",
       description: "Acesso básico apenas ao necessário para o trabalho diário.",
     },
   ];
 
   const crmRoleOptions = roleOptions.map((option) =>
-    option.value === "geral"
+    option.value === "basic"
       ? { ...option, value: "negado" as const, label: "Negado" }
       : option,
   ) as { value: CrmAccessLevel; label: string; description: string }[];
@@ -275,7 +275,7 @@ export default function ColaboradorDetalhes() {
     setRole(fallbackRole);
     setWppAccess("nao");
     setCrmAccess("nao");
-    setCrmLevel("negado");
+    setCrmLevel(accessToCrmLevel(fallbackRole));
   };
 
   const fetchUserRoleData = async (userId: string, fallbackRole: AccessLevel) => {
@@ -315,8 +315,9 @@ export default function ColaboradorDetalhes() {
       crm_level_acess?: string | null;
     };
 
+    const normalizedRole = normalizeRole(roleData.role);
     setUserRoleRowId(roleData.id ?? null);
-    setRole(normalizeRole(roleData.role));
+    setRole(normalizedRole);
     const resolvedWppAccess =
       typeof roleData.wpp_acess === "boolean"
         ? roleData.wpp_acess
@@ -341,7 +342,15 @@ export default function ColaboradorDetalhes() {
         : typeof roleData.crm_level_acess === "string" && roleData.crm_level_acess.length > 0
         ? roleData.crm_level_acess
         : null;
-    setCrmLevel(normalizeCrmLevel(levelValue));
+    const normalizedCrmLevel = normalizeCrmLevel(levelValue);
+
+    if (normalizedCrmLevel !== "negado") {
+      setCrmLevel(normalizedCrmLevel);
+    } else if (resolvedCrmAccess === true) {
+      setCrmLevel(accessToCrmLevel(normalizedRole));
+    } else {
+      setCrmLevel(normalizedCrmLevel);
+    }
   };
 
   const upsertUserRoles = async () => {
@@ -358,11 +367,16 @@ export default function ColaboradorDetalhes() {
       return;
     }
 
+    const resolvedCrmLevel =
+      crmAccess === "sim"
+        ? (crmLevel === "negado" ? accessToCrmLevel(role) : crmLevel)
+        : ("negado" as CrmAccessLevel);
+
     const userRolesPayload: Database["public"]["Tables"]["user_roles"]["Insert"] = {
       user_id: colaborador.user_id,
       role,
       crm_access: binaryToBoolean(crmAccess),
-      crm_access_level: crmLevel,
+      crm_access_level: resolvedCrmLevel,
       wpp_acess: binaryToBoolean(wppAccess),
     };
 
@@ -397,7 +411,8 @@ export default function ColaboradorDetalhes() {
       };
 
       setUserRoleRowId(updatedRoleData.id ?? null);
-      setRole(normalizeRole(updatedRoleData.role));
+      const updatedRole = normalizeRole(updatedRoleData.role);
+      setRole(updatedRole);
       const updatedWppAccess =
         typeof updatedRoleData.wpp_acess === "boolean"
           ? updatedRoleData.wpp_acess
@@ -425,7 +440,14 @@ export default function ColaboradorDetalhes() {
             updatedRoleData.crm_level_acess.length > 0
           ? updatedRoleData.crm_level_acess
           : null;
-      setCrmLevel(normalizeCrmLevel(updatedLevel));
+      const normalizedUpdatedLevel = normalizeCrmLevel(updatedLevel);
+      if (normalizedUpdatedLevel !== "negado") {
+        setCrmLevel(normalizedUpdatedLevel);
+      } else if (updatedCrmAccess === true) {
+        setCrmLevel(accessToCrmLevel(updatedRole));
+      } else {
+        setCrmLevel(normalizedUpdatedLevel);
+      }
     }
   };
 
@@ -474,7 +496,7 @@ export default function ColaboradorDetalhes() {
       setColaborador(colaboradorData);
 
       const fallbackRole = normalizeRole(
-        colaboradorData.admin ? "admin" : colaboradorData.supervisor ? "supervisor" : "geral"
+        colaboradorData.admin ? "admin" : colaboradorData.supervisor ? "supervisor" : "basic"
       );
       setRole(fallbackRole);
       setStatus(
