@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Configuracoes() {
   type AccessLevel = "admin" | "manager" | "supervisor" | "assistent" | "basic";
@@ -62,18 +63,19 @@ export default function Configuracoes() {
   const {
     darkMode,
     setDarkMode,
-    primaryColor, 
-    setPrimaryColor, 
+    primaryColor,
+    setPrimaryColor,
     secondaryColor,
     setSecondaryColor,
     logoUrl, 
     setLogoUrl, 
-    logoIconUrl, 
+    logoIconUrl,
     setLogoIconUrl,
-    faviconUrl, 
+    faviconUrl,
     setFaviconUrl,
-    saveAsGlobal 
+    saveAsGlobal
   } = useTheme();
+  const { userRole } = useAuth();
   const [tempLogoUrl, setTempLogoUrl] = useState(logoUrl);
   const [tempLogoIconUrl, setTempLogoIconUrl] = useState(logoIconUrl);
   const [tempFaviconUrl, setTempFaviconUrl] = useState(faviconUrl);
@@ -96,6 +98,11 @@ export default function Configuracoes() {
 
   useEffect(() => {
     const loadWebhook = async () => {
+      if (userRole !== "admin") {
+        setIsLoadingWebhook(false);
+        return;
+      }
+
       try {
         const { data, error } = await supabase
           .from("global_settings")
@@ -137,10 +144,15 @@ export default function Configuracoes() {
     };
 
     loadWebhook();
-  }, []);
+  }, [userRole]);
 
   useEffect(() => {
     const loadN8nUrl = async () => {
+      if (userRole !== "admin") {
+        setIsLoadingN8nUrl(false);
+        return;
+      }
+
       const storedUrl = localStorage.getItem("n8n-url");
       if (storedUrl) {
         setN8nUrl(storedUrl);
@@ -185,10 +197,15 @@ export default function Configuracoes() {
     };
 
     loadN8nUrl();
-  }, []);
+  }, [userRole]);
 
   useEffect(() => {
     const loadMinAccessLevel = async () => {
+      if (userRole !== "admin") {
+        setIsLoadingAccessLevel(false);
+        return;
+      }
+
       try {
         const { data, error } = await supabase
           .from("global_settings")
@@ -217,7 +234,7 @@ export default function Configuracoes() {
     };
 
     loadMinAccessLevel();
-  }, []);
+  }, [userRole]);
 
   const handleSaveUrls = () => {
     setLogoUrl(tempLogoUrl);
@@ -267,9 +284,26 @@ export default function Configuracoes() {
         case b: h = ((r - g) / d + 4) / 6; break;
       }
     }
-    
+
     return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
   };
+
+  if (userRole !== "admin") {
+    return (
+      <Layout>
+        <div className="max-w-3xl">
+          <Card>
+            <CardHeader>
+              <CardTitle>Acesso não autorizado</CardTitle>
+              <CardDescription>
+                Você não tem permissão para acessar a página de configurações.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

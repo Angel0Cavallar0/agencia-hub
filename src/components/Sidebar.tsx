@@ -441,25 +441,27 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
                       <span>Expandir menu</span>
                     </button>
                     {userRole === "admin" && (
-                      <NavLink
-                        to="/logs"
-                        end
-                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent/10"
-                        activeClassName="bg-sidebar-accent/20 text-sidebar-accent-foreground"
-                      >
-                        <FileText className={iconClassName} />
-                        <span>Logs</span>
-                      </NavLink>
+                      <>
+                        <NavLink
+                          to="/logs"
+                          end
+                          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent/10"
+                          activeClassName="bg-sidebar-accent/20 text-sidebar-accent-foreground"
+                        >
+                          <FileText className={iconClassName} />
+                          <span>Logs</span>
+                        </NavLink>
+                        <NavLink
+                          to="/configuracoes"
+                          end
+                          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent/10"
+                          activeClassName="bg-sidebar-accent/20 text-sidebar-accent-foreground"
+                        >
+                          <Settings className={iconClassName} />
+                          <span>Configurações</span>
+                        </NavLink>
+                      </>
                     )}
-                    <NavLink
-                      to="/configuracoes"
-                      end
-                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent/10"
-                      activeClassName="bg-sidebar-accent/20 text-sidebar-accent-foreground"
-                    >
-                      <Settings className={iconClassName} />
-                      <span>Configurações</span>
-                    </NavLink>
                     <button
                       type="button"
                       onClick={signOut}
