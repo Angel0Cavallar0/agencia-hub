@@ -459,10 +459,13 @@ export default function Configuracoes() {
                       onClick={async () => {
                         setIsSavingAccessLevel(true);
                         try {
-                          const { error } = await supabase.from("global_settings").upsert({
-                            key: "min_access_level",
-                            value: minAccessLevel,
-                          });
+                          const { error } = await supabase.from("global_settings").upsert(
+                            {
+                              key: "min_access_level",
+                              value: minAccessLevel,
+                            },
+                            { onConflict: "key" }
+                          );
 
                           if (error) throw error;
 
