@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, Building2, Phone, Mail } from "lucide-react";
+import { Search, Plus, Building2, Phone, Mail, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ import {
   useContacts,
   useCompanies,
   useCreateContact,
+  useUpdateContact,
   useDeals,
 } from "@/hooks/useCRM";
 
@@ -46,8 +47,10 @@ export function ContactsTab() {
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [showNewDialog, setShowNewDialog] = useState(false);
-  const [newContact, setNewContact] = useState({
+  const [showDialog, setShowDialog] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [contactForm, setContactForm] = useState({
     name: "",
     email: "",
     phone: "",
@@ -63,19 +66,58 @@ export function ContactsTab() {
   const { data: companies } = useCompanies();
   const { data: deals } = useDeals();
   const createContact = useCreateContact();
+  const updateContact = useUpdateContact();
 
-  const handleCreateContact = async () => {
-    if (!newContact.name.trim()) return;
-    await createContact.mutateAsync({
-      name: newContact.name,
-      email: newContact.email || undefined,
-      phone: newContact.phone || undefined,
-      position: newContact.position || undefined,
-      company_id: newContact.company_id || undefined,
-      notes: newContact.notes || undefined,
+  const resetDialogState = () => {
+    setContactForm({ name: "", email: "", phone: "", position: "", company_id: "", notes: "" });
+    setEditingContactId(null);
+    setDialogMode("create");
+  };
+
+  const handleOpenCreate = () => {
+    resetDialogState();
+    setShowDialog(true);
+  };
+
+  const handleOpenEdit = (contact: Contact) => {
+    setDialogMode("edit");
+    setEditingContactId(contact.id);
+    setContactForm({
+      name: contact.name,
+      email: contact.email || "",
+      phone: contact.phone || "",
+      position: contact.position || "",
+      company_id: contact.company_id || "",
+      notes: contact.notes || "",
     });
-    setNewContact({ name: "", email: "", phone: "", position: "", company_id: "", notes: "" });
-    setShowNewDialog(false);
+    setShowDialog(true);
+  };
+
+  const handleSaveContact = async () => {
+    if (!contactForm.name.trim()) return;
+
+    const payload = {
+      name: contactForm.name,
+      email: contactForm.email || undefined,
+      phone: contactForm.phone || undefined,
+      position: contactForm.position || undefined,
+      company_id: contactForm.company_id || undefined,
+      notes: contactForm.notes || undefined,
+    };
+
+    if (dialogMode === "edit" && editingContactId) {
+      await updateContact.mutateAsync({ id: editingContactId, ...payload });
+      setSelectedContact((current) =>
+        current && current.id === editingContactId
+          ? { ...current, ...payload, company: companies?.find((c) => c.id === payload.company_id) }
+          : current
+      );
+    } else {
+      await createContact.mutateAsync(payload);
+    }
+
+    resetDialogState();
+    setShowDialog(false);
   };
 
   const getContactDeals = (contactId: string) => {
@@ -110,7 +152,7 @@ export function ContactsTab() {
           </SelectContent>
         </Select>
 
-        <Button onClick={() => setShowNewDialog(true)}>
+        <Button onClick={handleOpenCreate}>
           <Plus className="h-4 w-4 mr-2" />
           Novo contato
         </Button>
@@ -178,6 +220,13 @@ export function ContactsTab() {
                 <SheetTitle>{selectedContact.name}</SheetTitle>
               </SheetHeader>
 
+              <div className="flex justify-end pt-2">
+                <Button variant="outline" size="sm" onClick={() => handleOpenEdit(selectedContact)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+              </div>
+
               <div className="mt-6 space-y-6">
                 <div className="space-y-4">
                   {selectedContact.email && (
@@ -231,19 +280,27 @@ export function ContactsTab() {
         </SheetContent>
       </Sheet>
 
-      {/* New Contact Dialog */}
-      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+      {/* Contact Dialog */}
+      <Dialog
+        open={showDialog}
+        onOpenChange={(open) => {
+          setShowDialog(open);
+          if (!open) {
+            resetDialogState();
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo Contato</DialogTitle>
+            <DialogTitle>{dialogMode === "edit" ? "Editar Contato" : "Novo Contato"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Nome *</Label>
               <Input
-                value={newContact.name}
-                onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                value={contactForm.name}
+                onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
                 placeholder="Nome do contato"
               />
             </div>
@@ -253,16 +310,16 @@ export function ContactsTab() {
                 <Label>Email</Label>
                 <Input
                   type="email"
-                  value={newContact.email}
-                  onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
                   placeholder="email@exemplo.com"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Telefone</Label>
                 <Input
-                  value={newContact.phone}
-                  onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                  value={contactForm.phone}
+                  onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
                   placeholder="(00) 00000-0000"
                 />
               </div>
@@ -272,21 +329,24 @@ export function ContactsTab() {
               <div className="space-y-2">
                 <Label>Cargo</Label>
                 <Input
-                  value={newContact.position}
-                  onChange={(e) => setNewContact({ ...newContact, position: e.target.value })}
+                  value={contactForm.position}
+                  onChange={(e) => setContactForm({ ...contactForm, position: e.target.value })}
                   placeholder="Cargo"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Empresa</Label>
                 <Select
-                  value={newContact.company_id}
-                  onValueChange={(value) => setNewContact({ ...newContact, company_id: value })}
+                  value={contactForm.company_id || "none"}
+                  onValueChange={(value) =>
+                    setContactForm({ ...contactForm, company_id: value === "none" ? "" : value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">Sem empresa</SelectItem>
                     {companies?.map((company) => (
                       <SelectItem key={company.id} value={company.id}>
                         {company.name}
@@ -300,21 +360,27 @@ export function ContactsTab() {
             <div className="space-y-2">
               <Label>Observações</Label>
               <Textarea
-                value={newContact.notes}
-                onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
+                value={contactForm.notes}
+                onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })}
                 placeholder="Notas sobre o contato..."
               />
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowNewDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDialog(false);
+                  resetDialogState();
+                }}
+              >
                 Cancelar
               </Button>
               <Button
-                onClick={handleCreateContact}
-                disabled={!newContact.name.trim() || createContact.isPending}
+                onClick={handleSaveContact}
+                disabled={!contactForm.name.trim() || createContact.isPending || updateContact.isPending}
               >
-                Criar contato
+                {dialogMode === "edit" ? "Salvar alterações" : "Criar contato"}
               </Button>
             </div>
           </div>

@@ -7,10 +7,9 @@ interface CRMHeaderProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   onOpenSettings?: () => void;
-  onNewDeal?: () => void;
 }
 
-export function CRMHeader({ activeTab, onTabChange, onOpenSettings, onNewDeal }: CRMHeaderProps) {
+export function CRMHeader({ activeTab, onTabChange, onOpenSettings }: CRMHeaderProps) {
   const isCRMAdmin = useIsCRMAdmin();
 
   return (
@@ -23,9 +22,6 @@ export function CRMHeader({ activeTab, onTabChange, onOpenSettings, onNewDeal }:
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {onNewDeal && (
-            <Button onClick={onNewDeal}>Novo negócio</Button>
-          )}
           {isCRMAdmin && onOpenSettings && (
             <Button variant="outline" size="icon" onClick={onOpenSettings}>
               <Settings className="h-4 w-4" />

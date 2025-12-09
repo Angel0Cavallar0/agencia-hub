@@ -354,6 +354,31 @@ export function useCreateCompany() {
   });
 }
 
+export function useUpdateCompany() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Company> & { id: string }) => {
+      const { data, error } = await supabase
+        .from("crm_companies")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm-companies"] });
+      toast.success("Empresa atualizada com sucesso!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao atualizar empresa: " + error.message);
+    },
+  });
+}
+
 export function useCreateContact() {
   const queryClient = useQueryClient();
 
@@ -376,6 +401,31 @@ export function useCreateContact() {
     },
     onError: (error) => {
       toast.error("Erro ao criar contato: " + error.message);
+    },
+  });
+}
+
+export function useUpdateContact() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Contact> & { id: string }) => {
+      const { data, error } = await supabase
+        .from("crm_contacts")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm-contacts"] });
+      toast.success("Contato atualizado com sucesso!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao atualizar contato: " + error.message);
     },
   });
 }

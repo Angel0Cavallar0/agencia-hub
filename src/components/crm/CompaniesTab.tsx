@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, Phone, Mail, Globe, MapPin } from "lucide-react";
+import { Search, Plus, Phone, Mail, Globe, MapPin, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ import {
   Company,
   useCompanies,
   useCreateCompany,
+  useUpdateCompany,
   useContacts,
   useDeals,
 } from "@/hooks/useCRM";
@@ -39,8 +40,10 @@ import {
 export function CompaniesTab() {
   const [search, setSearch] = useState("");
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
-  const [showNewDialog, setShowNewDialog] = useState(false);
-  const [newCompany, setNewCompany] = useState({
+  const [showDialog, setShowDialog] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
+  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
+  const [companyForm, setCompanyForm] = useState({
     name: "",
     document: "",
     phone: "",
@@ -56,21 +59,10 @@ export function CompaniesTab() {
   const { data: contacts } = useContacts();
   const { data: deals } = useDeals();
   const createCompany = useCreateCompany();
+  const updateCompany = useUpdateCompany();
 
-  const handleCreateCompany = async () => {
-    if (!newCompany.name.trim()) return;
-    await createCompany.mutateAsync({
-      name: newCompany.name,
-      document: newCompany.document || undefined,
-      phone: newCompany.phone || undefined,
-      email: newCompany.email || undefined,
-      website: newCompany.website || undefined,
-      city: newCompany.city || undefined,
-      state: newCompany.state || undefined,
-      address: newCompany.address || undefined,
-      notes: newCompany.notes || undefined,
-    });
-    setNewCompany({
+  const resetDialogState = () => {
+    setCompanyForm({
       name: "",
       document: "",
       phone: "",
@@ -81,7 +73,56 @@ export function CompaniesTab() {
       address: "",
       notes: "",
     });
-    setShowNewDialog(false);
+    setEditingCompanyId(null);
+    setDialogMode("create");
+  };
+
+  const handleOpenCreate = () => {
+    resetDialogState();
+    setShowDialog(true);
+  };
+
+  const handleOpenEdit = (company: Company) => {
+    setDialogMode("edit");
+    setEditingCompanyId(company.id);
+    setCompanyForm({
+      name: company.name,
+      document: company.document || "",
+      phone: company.phone || "",
+      email: company.email || "",
+      website: company.website || "",
+      city: company.city || "",
+      state: company.state || "",
+      address: company.address || "",
+      notes: company.notes || "",
+    });
+    setShowDialog(true);
+  };
+
+  const handleSaveCompany = async () => {
+    if (!companyForm.name.trim()) return;
+
+    const payload = {
+      name: companyForm.name,
+      document: companyForm.document || undefined,
+      phone: companyForm.phone || undefined,
+      email: companyForm.email || undefined,
+      website: companyForm.website || undefined,
+      city: companyForm.city || undefined,
+      state: companyForm.state || undefined,
+      address: companyForm.address || undefined,
+      notes: companyForm.notes || undefined,
+    };
+
+    if (dialogMode === "edit" && editingCompanyId) {
+      await updateCompany.mutateAsync({ id: editingCompanyId, ...payload });
+      setSelectedCompany((current) => (current && current.id === editingCompanyId ? { ...current, ...payload } : current));
+    } else {
+      await createCompany.mutateAsync(payload);
+    }
+
+    resetDialogState();
+    setShowDialog(false);
   };
 
   const getCompanyContacts = (companyId: string) => {
@@ -106,7 +147,7 @@ export function CompaniesTab() {
           />
         </div>
 
-        <Button onClick={() => setShowNewDialog(true)}>
+        <Button onClick={handleOpenCreate}>
           <Plus className="h-4 w-4 mr-2" />
           Nova empresa
         </Button>
@@ -191,6 +232,13 @@ export function CompaniesTab() {
               <SheetHeader>
                 <SheetTitle>{selectedCompany.name}</SheetTitle>
               </SheetHeader>
+
+              <div className="flex justify-end pt-2">
+                <Button variant="outline" size="sm" onClick={() => handleOpenEdit(selectedCompany)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+              </div>
 
               <div className="mt-6 space-y-6">
                 <div className="space-y-3">
@@ -289,19 +337,27 @@ export function CompaniesTab() {
         </SheetContent>
       </Sheet>
 
-      {/* New Company Dialog */}
-      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+      {/* Company Dialog */}
+      <Dialog
+        open={showDialog}
+        onOpenChange={(open) => {
+          setShowDialog(open);
+          if (!open) {
+            resetDialogState();
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Nova Empresa</DialogTitle>
+            <DialogTitle>{dialogMode === "edit" ? "Editar Empresa" : "Nova Empresa"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             <div className="space-y-2">
               <Label>Nome *</Label>
               <Input
-                value={newCompany.name}
-                onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
+                value={companyForm.name}
+                onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
                 placeholder="Nome da empresa"
               />
             </div>
@@ -309,8 +365,8 @@ export function CompaniesTab() {
             <div className="space-y-2">
               <Label>CNPJ</Label>
               <Input
-                value={newCompany.document}
-                onChange={(e) => setNewCompany({ ...newCompany, document: e.target.value })}
+                value={companyForm.document}
+                onChange={(e) => setCompanyForm({ ...companyForm, document: e.target.value })}
                 placeholder="00.000.000/0000-00"
               />
             </div>
@@ -320,16 +376,16 @@ export function CompaniesTab() {
                 <Label>Email</Label>
                 <Input
                   type="email"
-                  value={newCompany.email}
-                  onChange={(e) => setNewCompany({ ...newCompany, email: e.target.value })}
+                  value={companyForm.email}
+                  onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
                   placeholder="contato@empresa.com"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Telefone</Label>
                 <Input
-                  value={newCompany.phone}
-                  onChange={(e) => setNewCompany({ ...newCompany, phone: e.target.value })}
+                  value={companyForm.phone}
+                  onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
                   placeholder="(00) 0000-0000"
                 />
               </div>
@@ -338,8 +394,8 @@ export function CompaniesTab() {
             <div className="space-y-2">
               <Label>Site</Label>
               <Input
-                value={newCompany.website}
-                onChange={(e) => setNewCompany({ ...newCompany, website: e.target.value })}
+                value={companyForm.website}
+                onChange={(e) => setCompanyForm({ ...companyForm, website: e.target.value })}
                 placeholder="https://empresa.com.br"
               />
             </div>
@@ -348,16 +404,16 @@ export function CompaniesTab() {
               <div className="space-y-2">
                 <Label>Cidade</Label>
                 <Input
-                  value={newCompany.city}
-                  onChange={(e) => setNewCompany({ ...newCompany, city: e.target.value })}
+                  value={companyForm.city}
+                  onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
                   placeholder="Cidade"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Estado</Label>
                 <Input
-                  value={newCompany.state}
-                  onChange={(e) => setNewCompany({ ...newCompany, state: e.target.value })}
+                  value={companyForm.state}
+                  onChange={(e) => setCompanyForm({ ...companyForm, state: e.target.value })}
                   placeholder="UF"
                   maxLength={2}
                 />
@@ -367,8 +423,8 @@ export function CompaniesTab() {
             <div className="space-y-2">
               <Label>Endereço</Label>
               <Input
-                value={newCompany.address}
-                onChange={(e) => setNewCompany({ ...newCompany, address: e.target.value })}
+                value={companyForm.address}
+                onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })}
                 placeholder="Rua, número, bairro"
               />
             </div>
@@ -376,21 +432,27 @@ export function CompaniesTab() {
             <div className="space-y-2">
               <Label>Observações</Label>
               <Textarea
-                value={newCompany.notes}
-                onChange={(e) => setNewCompany({ ...newCompany, notes: e.target.value })}
+                value={companyForm.notes}
+                onChange={(e) => setCompanyForm({ ...companyForm, notes: e.target.value })}
                 placeholder="Notas sobre a empresa..."
               />
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setShowNewDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDialog(false);
+                  resetDialogState();
+                }}
+              >
                 Cancelar
               </Button>
               <Button
-                onClick={handleCreateCompany}
-                disabled={!newCompany.name.trim() || createCompany.isPending}
+                onClick={handleSaveCompany}
+                disabled={!companyForm.name.trim() || createCompany.isPending || updateCompany.isPending}
               >
-                Criar empresa
+                {dialogMode === "edit" ? "Salvar alterações" : "Criar empresa"}
               </Button>
             </div>
           </div>

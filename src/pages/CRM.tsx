@@ -114,7 +114,6 @@ export default function CRM() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onOpenSettings={isCRMAdmin ? () => setIsSettingsOpen(true) : undefined}
-          onNewDeal={() => setIsNewDealOpen(true)}
         />
 
         <Separator />
