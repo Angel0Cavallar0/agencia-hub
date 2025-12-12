@@ -101,6 +101,8 @@ export default function Configuracoes() {
   const [isSavingAccessLevel, setIsSavingAccessLevel] = useState(false);
   const [isCRMSettingsOpen, setIsCRMSettingsOpen] = useState(false);
   const [crmWebhookUrl, setCrmWebhookUrl] = useState("");
+  const [meetingsWebhookUrl, setMeetingsWebhookUrl] = useState("");
+  const [isSavingMeetingsWebhook, setIsSavingMeetingsWebhook] = useState(false);
   const { data: crmPipelines = [] } = usePipelines(true);
   const { data: crmStages = [] } = useStages();
   const { data: crmWebhookSetting } = useCRMSetting("crm_webhook");
@@ -260,6 +262,31 @@ export default function Configuracoes() {
     loadMinAccessLevel();
   }, [userRole]);
 
+  // Load meetings webhook
+  useEffect(() => {
+    const loadMeetingsWebhook = async () => {
+      if (userRole !== "admin") return;
+
+      try {
+        const { data, error } = await supabase
+          .from("global_settings")
+          .select("value")
+          .eq("key", "meetings_webhook")
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (typeof data?.value === "string") {
+          setMeetingsWebhookUrl(data.value);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar webhook de reuniões:", error);
+      }
+    };
+
+    loadMeetingsWebhook();
+  }, [userRole]);
+
   const handleSaveUrls = () => {
     setLogoUrl(tempLogoUrl);
     setLogoIconUrl(tempLogoIconUrl);
@@ -269,6 +296,30 @@ export default function Configuracoes() {
 
   const handleSaveCRMWebhook = async () => {
     await upsertCRMSetting.mutateAsync({ key: "crm_webhook", value: { url: crmWebhookUrl } });
+  };
+
+  const handleSaveMeetingsWebhook = async () => {
+    setIsSavingMeetingsWebhook(true);
+    try {
+      const { error } = await supabase.from("global_settings").upsert(
+        {
+          key: "meetings_webhook",
+          value: meetingsWebhookUrl,
+        },
+        { onConflict: "key" }
+      );
+
+      if (error) throw error;
+
+      await logger.success("Webhook de reuniões atualizado", { webhook: meetingsWebhookUrl });
+      toast.success("Webhook de reuniões salvo com sucesso!");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await logger.error("Erro ao salvar webhook de reuniões", "MEETINGS_WEBHOOK_SAVE", { errorMessage });
+      toast.error("Erro ao salvar webhook: " + errorMessage);
+    } finally {
+      setIsSavingMeetingsWebhook(false);
+    }
   };
 
   const hslToHex = (hsl: string): string => {
@@ -344,7 +395,7 @@ export default function Configuracoes() {
         </div>
 
         <Tabs defaultValue={defaultTab} className="space-y-6">
-          <TabsList>
+          <TabsList className="flex-wrap">
             {isFullAdmin && (
               <>
                 <TabsTrigger value="appearance">Aparência</TabsTrigger>
@@ -352,6 +403,7 @@ export default function Configuracoes() {
                 <TabsTrigger value="access">Acesso</TabsTrigger>
                 <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
                 <TabsTrigger value="n8n">n8n</TabsTrigger>
+                <TabsTrigger value="reunioes">Reuniões</TabsTrigger>
               </>
             )}
             <TabsTrigger value="crm">CRM</TabsTrigger>
@@ -705,6 +757,35 @@ export default function Configuracoes() {
                   }}
                 >
                   {isSavingN8nUrl ? "Salvando..." : "Salvar link"}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="reunioes">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configurações de Reuniões</CardTitle>
+                <CardDescription>Configure a integração de transcrição de reuniões.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="meetings-webhook">Webhook de Reuniões</Label>
+                  <Input
+                    id="meetings-webhook"
+                    placeholder="https://sua-url.com/webhook-reunioes"
+                    value={meetingsWebhookUrl}
+                    onChange={(e) => setMeetingsWebhookUrl(e.target.value)}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Esta URL será chamada após o upload de cada arquivo de áudio de reunião com os dados do arquivo e cliente.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleSaveMeetingsWebhook}
+                  disabled={isSavingMeetingsWebhook}
+                >
+                  {isSavingMeetingsWebhook ? "Salvando..." : "Salvar webhook"}
                 </Button>
               </CardContent>
             </Card>
