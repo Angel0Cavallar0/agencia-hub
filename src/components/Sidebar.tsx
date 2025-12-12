@@ -13,6 +13,7 @@ import {
   PanelLeftOpen,
   MoreVertical,
   Workflow,
+  Mic,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -363,6 +364,22 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
           >
             <Workflow className={iconClassName} />
             {!collapsed && <span className="font-medium">n8n</span>}
+          </NavLink>
+        )}
+
+        {/* Reuniões - Condicional baseado em permissões */}
+        {permissions.crm_access && (
+          <NavLink
+            to="/reunioes"
+            end
+            className={cn(
+              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              collapsed ? "justify-center" : undefined
+            )}
+            activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+          >
+            <Mic className={iconClassName} />
+            {!collapsed && <span className="font-medium">Reuniões</span>}
           </NavLink>
         )}
 

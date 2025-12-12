@@ -484,7 +484,7 @@ export function useCRMSetting(key: string) {
         .maybeSingle();
 
       if (error) throw error;
-      return data as CRMSetting | null;
+      return data as unknown as CRMSetting | null;
     },
     enabled: !!key,
   });
@@ -497,12 +497,12 @@ export function useUpsertCRMSetting() {
     mutationFn: async ({ key, value }: { key: string; value: Record<string, unknown> }) => {
       const { data, error } = await supabase
         .from("crm_settings")
-        .upsert({ key, value }, { onConflict: "key" })
+        .upsert([{ key, value: value as unknown as import("@/integrations/supabase/types").Json }], { onConflict: "key" })
         .select()
         .maybeSingle();
 
       if (error) throw error;
-      return data as CRMSetting | null;
+      return data as unknown as CRMSetting | null;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["crm-settings", variables.key] });

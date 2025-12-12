@@ -22,6 +22,7 @@ import Logs from "./pages/Logs";
 import CRM from "./pages/CRM";
 import Whatsapp from "./pages/Whatsapp";
 import N8N from "./pages/N8N";
+import Reunioes from "./pages/Reunioes";
 import ClickupResponsaveis from "./pages/clickup/Responsaveis";
 import ClickupTarefas from "./pages/clickup/Tarefas";
 import ClickupPastas from "./pages/clickup/Pastas";
@@ -166,6 +167,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <N8N />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reunioes"
+                element={
+                  <ProtectedRoute>
+                    <Reunioes />
                   </ProtectedRoute>
                 }
               />
