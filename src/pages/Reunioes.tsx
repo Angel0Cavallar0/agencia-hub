@@ -419,7 +419,7 @@ export default function Reunioes() {
                   }
                 }}
               >
-                <DialogContent className="max-w-3xl">
+                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Detalhes da reunião</DialogTitle>
                     <DialogDescription>
