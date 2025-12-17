@@ -943,6 +943,56 @@ export type Database = {
           },
         ]
       }
+      meeting_transcriptions: {
+        Row: {
+          created_at: string
+          decisoes_tomadas: string | null
+          id: number
+          id_cliente: string | null
+          meeting_date: string | null
+          pendencias_de_confirmacao: string | null
+          pontos_debatidos: string | null
+          resumo_executivo: string | null
+          riscos_e_alertas: string | null
+          tarefas_proximos_passos: string | null
+          topicos_de_servico: string | null
+        }
+        Insert: {
+          created_at?: string
+          decisoes_tomadas?: string | null
+          id?: number
+          id_cliente?: string | null
+          meeting_date?: string | null
+          pendencias_de_confirmacao?: string | null
+          pontos_debatidos?: string | null
+          resumo_executivo?: string | null
+          riscos_e_alertas?: string | null
+          tarefas_proximos_passos?: string | null
+          topicos_de_servico?: string | null
+        }
+        Update: {
+          created_at?: string
+          decisoes_tomadas?: string | null
+          id?: number
+          id_cliente?: string | null
+          meeting_date?: string | null
+          pendencias_de_confirmacao?: string | null
+          pontos_debatidos?: string | null
+          resumo_executivo?: string | null
+          riscos_e_alertas?: string | null
+          tarefas_proximos_passos?: string | null
+          topicos_de_servico?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_transcriptions_id_cliente_fkey"
+            columns: ["id_cliente"]
+            isOneToOne: false
+            referencedRelation: "clientes_infos"
+            referencedColumns: ["id_cliente"]
+          },
+        ]
+      }
       status_clickup: {
         Row: {
           data_criacao: string | null

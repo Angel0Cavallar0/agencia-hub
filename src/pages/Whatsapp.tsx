@@ -5,6 +5,12 @@ import {
   Forward,
   MoreVertical,
   Trash2,
+  Paperclip,
+  Image,
+  Video,
+  Mic,
+  FileText,
+  X,
 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -22,6 +28,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -103,6 +114,12 @@ export default function Whatsapp() {
     url: string;
     type: "image" | "video";
   } | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<{ file: File; type: "image" | "video" | "audio" | "document"; preview?: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const storedArchived = localStorage.getItem("whatsapp-archived-chats");
@@ -750,12 +767,184 @@ export default function Whatsapp() {
           body: JSON.stringify({
             reply: sanitizeMessage(replyTo),
             message: sanitizeMessage(sentMessage),
+            content_type: "Texto",
           }),
         });
       } catch (err) {
         console.error(err);
         toast.warning("Mensagem enviada, mas o webhook não pôde ser acionado.");
       }
+    }
+  };
+
+  const getContentTypeLabel = (type: "image" | "video" | "audio" | "document" | "text") => {
+    switch (type) {
+      case "image": return "Foto";
+      case "video": return "Vídeo";
+      case "audio": return "Áudio";
+      case "document": return "Documento";
+      default: return "Texto";
+    }
+  };
+
+  const handleFileSelect = (file: File, type: "image" | "video" | "audio" | "document") => {
+    let preview: string | undefined;
+    if (type === "image" || type === "video") {
+      preview = URL.createObjectURL(file);
+    }
+    setSelectedFile({ file, type, preview });
+  };
+
+  const clearSelectedFile = () => {
+    if (selectedFile?.preview) {
+      URL.revokeObjectURL(selectedFile.preview);
+    }
+    setSelectedFile(null);
+  };
+
+  const handleSendFile = async () => {
+    if (!selectedFile || !selectedChat || !selectedChatSource) {
+      toast.error("Selecione um arquivo e uma conversa.");
+      return;
+    }
+
+    setUploadingFile(true);
+
+    try {
+      const { file, type } = selectedFile;
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `${selectedChat}/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("whatsapp")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        toast.error("Erro ao fazer upload do arquivo.", { description: uploadError.message });
+        setUploadingFile(false);
+        return;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage.from("whatsapp").getPublicUrl(filePath);
+      const fileUrl = urlData.publicUrl;
+
+      const formattedContent = `*#${senderName}:*\n[${getContentTypeLabel(type)}]`;
+      const baseMessage = replyTo || currentMessages[currentMessages.length - 1];
+      const targetSource = selectedChatSource;
+      let sentMessage: WhatsappMessage | null = null;
+
+      // Build message record with file URL
+      const fileFields = {
+        image_url: type === "image" ? fileUrl : null,
+        video_url: type === "video" ? fileUrl : null,
+        audio_url: type === "audio" ? fileUrl : null,
+        document_url: type === "document" ? fileUrl : null,
+      };
+
+      if (targetSource === "group") {
+        const groupInfo = chats.find(
+          (chat) => chat.id === selectedChat && chat.source === "group"
+        );
+
+        const newRecord: GroupMessage = {
+          group_id: selectedChat,
+          group_name: groupInfo?.name || "Grupo sem nome",
+          group_photo: groupInfo?.photo || null,
+          is_group: true,
+          is_edited: false,
+          nome_wpp: senderName,
+          sender_phone: null,
+          message_id: crypto.randomUUID(),
+          message: formattedContent,
+          ...fileFields,
+          direcao: "SENT",
+          encaminhada: false,
+          created_at: new Date().toISOString(),
+          source: "group",
+        };
+
+        const { source, ...recordToInsert } = newRecord;
+        const { error } = await supabase.from("group_messages").insert(recordToInsert);
+
+        if (error) {
+          toast.error("Não foi possível enviar o arquivo.");
+          setUploadingFile(false);
+          return;
+        }
+
+        sentMessage = newRecord;
+        setMessages((prev) => [...prev, newRecord]);
+      } else {
+        const isChatMsg = (msg: WhatsappMessage | undefined): msg is ChatMessage =>
+          msg?.source === "chat";
+        const chatBase = isChatMsg(baseMessage) ? baseMessage : undefined;
+
+        const newRecord: ChatMessage = {
+          chat_id: selectedChat,
+          message_id: crypto.randomUUID(),
+          numero_wpp: chatBase?.numero_wpp || null,
+          chat_name: chatBase?.chat_name || "Chat sem nome",
+          direcao: "SENT",
+          foto_contato: chatBase?.foto_contato || null,
+          encaminhado: false,
+          is_group: false,
+          is_edited: false,
+          message: formattedContent,
+          ...fileFields,
+          reference_message_id: replyTo?.message_id || null,
+          created_at: new Date().toISOString(),
+          source: "chat",
+        };
+
+        const { source, ...recordToInsert } = newRecord;
+        const { error } = await supabase.from("chat_messages").insert(recordToInsert);
+
+        if (error) {
+          toast.error("Não foi possível enviar o arquivo.");
+          setUploadingFile(false);
+          return;
+        }
+
+        sentMessage = newRecord;
+        setMessages((prev) => [...prev, newRecord]);
+      }
+
+      clearSelectedFile();
+      setReplyTo(null);
+      toast.success("Arquivo enviado com sucesso!");
+
+      // Trigger webhook with content type
+      if (webhookUrl && sentMessage) {
+        try {
+          const { source, ...rest } = sentMessage;
+          await fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reply: replyTo ? (() => { const { source, ...r } = replyTo; return r; })() : null,
+              message: rest,
+              content_type: getContentTypeLabel(type),
+              file_info: {
+                url: fileUrl,
+                name: file.name,
+                size: file.size,
+                type: file.type,
+              },
+            }),
+          });
+        } catch (err) {
+          console.error(err);
+          toast.warning("Arquivo enviado, mas o webhook não pôde ser acionado.");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao enviar arquivo.");
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -1167,7 +1356,129 @@ export default function Whatsapp() {
                       </Button>
                     </div>
                   )}
+                  {/* Selected file preview */}
+                  {selectedFile && (
+                    <div className="mb-2 flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-2">
+                      {selectedFile.type === "image" && selectedFile.preview && (
+                        <img src={selectedFile.preview} alt="Preview" className="h-16 w-16 rounded object-cover" />
+                      )}
+                      {selectedFile.type === "video" && selectedFile.preview && (
+                        <video src={selectedFile.preview} className="h-16 w-16 rounded object-cover" />
+                      )}
+                      {selectedFile.type === "audio" && (
+                        <div className="flex h-16 w-16 items-center justify-center rounded bg-muted">
+                          <Mic className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      {selectedFile.type === "document" && (
+                        <div className="flex h-16 w-16 items-center justify-center rounded bg-muted">
+                          <FileText className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{selectedFile.file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(selectedFile.file.size / 1024).toFixed(1)} KB • {getContentTypeLabel(selectedFile.type)}
+                        </p>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={clearSelectedFile}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2">
+                    {/* Hidden file inputs */}
+                    <input
+                      type="file"
+                      ref={imageInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileSelect(file, "image");
+                        e.target.value = "";
+                      }}
+                    />
+                    <input
+                      type="file"
+                      ref={videoInputRef}
+                      className="hidden"
+                      accept="video/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileSelect(file, "video");
+                        e.target.value = "";
+                      }}
+                    />
+                    <input
+                      type="file"
+                      ref={audioInputRef}
+                      className="hidden"
+                      accept="audio/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileSelect(file, "audio");
+                        e.target.value = "";
+                      }}
+                    />
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileSelect(file, "document");
+                        e.target.value = "";
+                      }}
+                    />
+
+                    {/* Attachment popover */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="shrink-0">
+                          <Paperclip className="h-5 w-5" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-2" align="start">
+                        <div className="flex flex-col gap-1">
+                          <Button
+                            variant="ghost"
+                            className="justify-start gap-2"
+                            onClick={() => imageInputRef.current?.click()}
+                          >
+                            <Image className="h-4 w-4" />
+                            Foto
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="justify-start gap-2"
+                            onClick={() => videoInputRef.current?.click()}
+                          >
+                            <Video className="h-4 w-4" />
+                            Vídeo
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="justify-start gap-2"
+                            onClick={() => audioInputRef.current?.click()}
+                          >
+                            <Mic className="h-4 w-4" />
+                            Áudio
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="justify-start gap-2"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <FileText className="h-4 w-4" />
+                            Documento
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+
                     <Input
                       placeholder="Digite uma mensagem"
                       value={newMessage}
@@ -1175,26 +1486,40 @@ export default function Whatsapp() {
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
-                          handleSend();
+                          if (selectedFile) {
+                            handleSendFile();
+                          } else {
+                            handleSend();
+                          }
                         }
                       }}
                       className="flex-1"
+                      disabled={uploadingFile}
                     />
-                    <Button onClick={handleSend} size="icon" className="shrink-0">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="m22 2-7 20-4-9-9-4Z" />
-                        <path d="M22 2 11 13" />
-                      </svg>
+                    <Button 
+                      onClick={selectedFile ? handleSendFile : handleSend} 
+                      size="icon" 
+                      className="shrink-0"
+                      disabled={uploadingFile}
+                    >
+                      {uploadingFile ? (
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="m22 2-7 20-4-9-9-4Z" />
+                          <path d="M22 2 11 13" />
+                        </svg>
+                      )}
                     </Button>
                   </div>
                 </div>
