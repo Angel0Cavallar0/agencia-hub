@@ -14,6 +14,7 @@ import {
   MoreVertical,
   Workflow,
   Mic,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +39,7 @@ const menuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: Users, label: "Clientes", path: "/clientes" },
   { icon: UserCog, label: "Colaboradores", path: "/colaboradores" },
+  { icon: Calendar, label: "Agendamento", path: "/agendamento" },
   {
     icon: MousePointerClick,
     label: "ClickUp",

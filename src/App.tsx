@@ -23,6 +23,7 @@ import CRM from "./pages/CRM";
 import Whatsapp from "./pages/Whatsapp";
 import N8N from "./pages/N8N";
 import Reunioes from "./pages/Reunioes";
+import AgendamentoConteudo from "./pages/AgendamentoConteudo";
 import ClickupResponsaveis from "./pages/clickup/Responsaveis";
 import ClickupTarefas from "./pages/clickup/Tarefas";
 import ClickupPastas from "./pages/clickup/Pastas";
@@ -175,6 +176,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Reunioes />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/agendamento"
+                element={
+                  <ProtectedRoute>
+                    <AgendamentoConteudo />
                   </ProtectedRoute>
                 }
               />
