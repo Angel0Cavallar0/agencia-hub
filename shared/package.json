@@ -1,0 +1,20 @@
+{
+  "name": "@agencia-hub/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types/index.ts",
+    "./utils": "./utils/index.ts",
+    "./api": "./api/index.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.79.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

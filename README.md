@@ -1,73 +1,181 @@
-# Welcome to your Lovable project
+# Agência Hub - Monorepo
 
-## Project info
+Sistema de gestão para agências digitais, com aplicações separadas para administração e clientes.
 
-**URL**: https://lovable.dev/projects/851e114d-60a3-455a-beb2-5ff2b78a86db
+## 📁 Estrutura do Monorepo
 
-## How can I edit this code?
+```
+agencia-hub/
+├── apps/
+│   ├── admin/          # Aplicação de administração (Vite + React + TypeScript)
+│   └── client/         # Aplicação para clientes (Vite + React + TypeScript)
+├── shared/             # Código compartilhado entre aplicações
+│   ├── types/          # Tipos TypeScript compartilhados
+│   ├── utils/          # Funções utilitárias
+│   └── api/            # Configuração de API e cliente Supabase
+├── supabase/           # Configurações e migrations do Supabase
+└── package.json        # Configuração do workspace raiz
+```
 
-There are several ways of editing your application.
+## 🚀 Como começar
 
-**Use Lovable**
+### Pré-requisitos
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/851e114d-60a3-455a-beb2-5ff2b78a86db) and start prompting.
+- Node.js >= 18.0.0
+- npm ou yarn
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Instalação
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# 1. Clone o repositório
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# 2. Entre no diretório do projeto
+cd agencia-hub
 
-# Step 3: Install the necessary dependencies.
-npm i
+# 3. Instale todas as dependências (root + workspaces)
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 4. Configure as variáveis de ambiente
+# Copie o arquivo .env para cada aplicação se necessário
+```
+
+## 🛠️ Scripts Disponíveis
+
+### Desenvolvimento
+
+```sh
+# Rodar aplicação admin
+npm run dev:admin
+
+# Rodar aplicação client
+npm run dev:client
+
+# Ou entre no diretório específico
+cd apps/admin
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Build
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```sh
+# Build da aplicação admin
+npm run build:admin
 
-**Use GitHub Codespaces**
+# Build da aplicação client
+npm run build:client
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Build de todas as aplicações
+npm run build:all
+```
 
-## What technologies are used for this project?
+### Outros
 
-This project is built with:
+```sh
+# Limpar node_modules e builds
+npm run clean
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Reinstalar todas as dependências
+npm run clean && npm install
+```
 
-## How can I deploy this project?
+## 📦 Workspaces
 
-Simply open [Lovable](https://lovable.dev/projects/851e114d-60a3-455a-beb2-5ff2b78a86db) and click on Share -> Publish.
+Este projeto usa npm workspaces para gerenciar múltiplos pacotes:
 
-## Can I connect a custom domain to my Lovable project?
+- **@agencia-hub/admin** - Aplicação de administração
+- **@agencia-hub/client** - Aplicação para clientes
+- **@agencia-hub/shared** - Código compartilhado
 
-Yes, you can!
+## 🧩 Shared Package
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+O pacote `shared` contém código reutilizável entre as aplicações:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Types
+```typescript
+import { Client, SocialMetrics, ContentApproval } from '@agencia-hub/shared/types'
+```
+
+### Utils
+```typescript
+import { formatDate, formatPhone, isValidEmail } from '@agencia-hub/shared/utils'
+```
+
+### API
+```typescript
+import { supabase, fetchApi } from '@agencia-hub/shared/api'
+```
+
+## 🔧 Tecnologias
+
+### Apps (Admin & Client)
+- **Vite** - Build tool e dev server
+- **React 18** - Biblioteca UI
+- **TypeScript** - Tipagem estática
+- **React Router** - Roteamento
+
+### Admin específico
+- **shadcn/ui** - Componentes UI
+- **Tailwind CSS** - Estilização
+- **Supabase** - Backend e autenticação
+- **TanStack Query** - Gerenciamento de estado servidor
+
+## 🌐 Deploy
+
+### Vercel (Recomendado)
+
+Cada aplicação possui seu próprio `vercel.json` configurado.
+
+```sh
+# Deploy admin
+cd apps/admin
+vercel
+
+# Deploy client
+cd apps/client
+vercel
+```
+
+### Configuração de variáveis de ambiente
+
+Certifique-se de configurar as variáveis de ambiente no painel da Vercel:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_API_URL` (se aplicável)
+
+## 📝 Desenvolvimento
+
+### Adicionando nova dependência
+
+```sh
+# Para uma aplicação específica
+npm install <package> --workspace=apps/admin
+
+# Para o shared package
+npm install <package> --workspace=shared
+
+# Para o root (dev tools)
+npm install <package> -D
+```
+
+### Criando componentes compartilhados
+
+1. Adicione o componente em `shared/components/`
+2. Exporte no `shared/index.ts`
+3. Use nas aplicações: `import { Component } from '@agencia-hub/shared'`
+
+## 🤝 Contribuindo
+
+1. Crie uma branch para sua feature: `git checkout -b feature/nome`
+2. Faça commit das mudanças: `git commit -m 'Add: nova feature'`
+3. Push para a branch: `git push origin feature/nome`
+4. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto é privado e confidencial.
+
+---
+
+**Project URL**: https://lovable.dev/projects/851e114d-60a3-455a-beb2-5ff2b78a86db
