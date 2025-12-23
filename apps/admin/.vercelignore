@@ -1,0 +1,9 @@
+node_modules
+.env.local
+.env.*.local
+*.log
+.DS_Store
+src/**/*.test.ts
+src/**/*.test.tsx
+src/**/*.spec.ts
+src/**/*.spec.tsx
