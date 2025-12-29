@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 166 100% 21%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 166 98% 34%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 166 98% 34%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 166 100% 21%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 166 100% 21%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 28% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 29% 94.5%;
+    --sidebar-ring: 166 100% 21%;
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 215 28% 17%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 215 28% 17%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 166 100% 21%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 166 98% 34%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 215 28% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 166 98% 34%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 215 28% 17%;
+    --input: 215 28% 17%;
+    --ring: 166 100% 21%;
+
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 166 100% 21%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 28% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 29% 94.5%;
+    --sidebar-ring: 166 100% 21%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply h-full;
+  }
+
+  body {
+    @apply min-h-screen overflow-y-scroll bg-background text-foreground;
+    color-scheme: light;
+    scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  #root {
+    @apply h-full;
+  }
+}

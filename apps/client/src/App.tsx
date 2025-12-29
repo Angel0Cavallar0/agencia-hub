@@ -1,18 +1,41 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { Layout } from "@/components/Layout";
+import { Login } from "@/pages/Login";
+import { Dashboard } from "@/pages/Dashboard";
+import { EnvWarning } from "@/components/EnvWarning";
+import { Toaster } from "sonner";
+import { isSupabaseConfigured } from "@/integrations/supabase/client";
 
 function App() {
+  // Show environment warning if Supabase is not configured
+  if (!isSupabaseConfigured) {
+    return <EnvWarning />;
+  }
+
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={
-          <div style={{ padding: '2rem', textAlign: 'center' }}>
-            <h1>Agência Hub - Client App</h1>
-            <p>Aplicação client em desenvolvimento</p>
-          </div>
-        } />
-      </Routes>
-    </Router>
-  )
+    <BrowserRouter>
+      <AuthProvider>
+        <Toaster position="top-right" richColors />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
