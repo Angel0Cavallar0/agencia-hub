@@ -17,6 +17,7 @@ import { useCRMSetting, usePipelines, useStages, useUpsertCRMSetting } from "@/h
 
 export default function Configuracoes() {
   type AccessLevel = "admin" | "manager" | "supervisor" | "assistent" | "basic";
+  type ClientAccessLevel = "admin";
 
   const DEFAULT_N8N_URL = "https://n8n.camaleon.com.br/";
   const normalizeN8nUrl = (url: string) => {
@@ -61,6 +62,17 @@ export default function Configuracoes() {
       description: "Acesso restrito às próprias informações, sem visualizar ou alterar dados de terceiros.",
     },
   ];
+  const clientAccessLevelOptions: {
+    value: ClientAccessLevel;
+    label: string;
+    description: string;
+  }[] = [
+    {
+      value: "admin",
+      label: "Administrador",
+      description: "Pode acessar o portal do cliente.",
+    },
+  ];
 
   const {
     darkMode,
@@ -99,6 +111,10 @@ export default function Configuracoes() {
   const [minAccessLevel, setMinAccessLevel] = useState<AccessLevel>("basic");
   const [isLoadingAccessLevel, setIsLoadingAccessLevel] = useState(true);
   const [isSavingAccessLevel, setIsSavingAccessLevel] = useState(false);
+  const [clientMinAccessLevel, setClientMinAccessLevel] =
+    useState<ClientAccessLevel>("admin");
+  const [isLoadingClientAccessLevel, setIsLoadingClientAccessLevel] = useState(true);
+  const [isSavingClientAccessLevel, setIsSavingClientAccessLevel] = useState(false);
   const [isCRMSettingsOpen, setIsCRMSettingsOpen] = useState(false);
   const [crmWebhookUrl, setCrmWebhookUrl] = useState("");
   const [meetingsWebhookUrl, setMeetingsWebhookUrl] = useState("");
@@ -260,6 +276,43 @@ export default function Configuracoes() {
     };
 
     loadMinAccessLevel();
+  }, [userRole]);
+
+  useEffect(() => {
+    const loadClientMinAccessLevel = async () => {
+      if (userRole !== "admin") {
+        setIsLoadingClientAccessLevel(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("global_settings")
+          .select("value")
+          .eq("key", "client_min_access_level")
+          .maybeSingle();
+
+        if (error) throw error;
+
+        const storedValue = typeof data?.value === "string" ? data.value : "";
+        if (clientAccessLevelOptions.some((option) => option.value === storedValue)) {
+          setClientMinAccessLevel(storedValue as ClientAccessLevel);
+        }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+
+        await logger.error("Erro ao carregar nível mínimo do cliente", "CLIENT_ACCESS_LOAD", {
+          errorMessage,
+          errorStack,
+        });
+        toast.error("Não foi possível carregar a regra de acesso dos clientes");
+      } finally {
+        setIsLoadingClientAccessLevel(false);
+      }
+    };
+
+    loadClientMinAccessLevel();
   }, [userRole]);
 
   // Load meetings webhook
@@ -629,6 +682,103 @@ export default function Configuracoes() {
                           <p className="text-xs text-muted-foreground">{option.description}</p>
                         </div>
                         {minAccessLevel === option.value && (
+                          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                            Nível mínimo atual
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Controle de acesso ao portal do cliente</CardTitle>
+                <CardDescription>
+                  Escolha o nível mínimo necessário para que o cliente acesse o portal.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <Label className="text-sm font-medium">
+                    Nível mínimo para acesso do cliente
+                  </Label>
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                    <Select
+                      value={clientMinAccessLevel}
+                      onValueChange={(value) => setClientMinAccessLevel(value as ClientAccessLevel)}
+                      disabled={
+                        !isFullAdmin || isLoadingClientAccessLevel || isSavingClientAccessLevel
+                      }
+                    >
+                      <SelectTrigger className="w-full md:w-[320px]">
+                        <SelectValue placeholder="Selecione o nível mínimo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clientAccessLevelOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={async () => {
+                        setIsSavingClientAccessLevel(true);
+                        try {
+                          const { error } = await supabase.from("global_settings").upsert(
+                            {
+                              key: "client_min_access_level",
+                              value: clientMinAccessLevel,
+                            },
+                            { onConflict: "key" }
+                          );
+
+                          if (error) throw error;
+
+                          await logger.success("Nível mínimo do cliente atualizado", {
+                            accessLevel: clientMinAccessLevel,
+                          });
+                          toast.success("Regra de acesso do cliente salva!");
+                        } catch (error: unknown) {
+                          const errorMessage = error instanceof Error ? error.message : String(error);
+                          const errorStack = error instanceof Error ? error.stack : undefined;
+
+                          await logger.error(
+                            "Erro ao salvar nível mínimo do cliente",
+                            "CLIENT_ACCESS_SAVE",
+                            {
+                              errorMessage,
+                              errorStack,
+                              accessLevel: clientMinAccessLevel,
+                            }
+                          );
+                          toast.error("Erro ao salvar regra do cliente: " + errorMessage);
+                        } finally {
+                          setIsSavingClientAccessLevel(false);
+                        }
+                      }}
+                      disabled={!isFullAdmin || isSavingClientAccessLevel}
+                    >
+                      {isSavingClientAccessLevel ? "Salvando..." : "Salvar regra"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Apenas clientes com esse nível (ou acima) poderão acessar o portal.
+                  </p>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  {clientAccessLevelOptions.map((option) => (
+                    <div key={option.value} className="rounded-lg border p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold">{option.label}</p>
+                          <p className="text-xs text-muted-foreground">{option.description}</p>
+                        </div>
+                        {clientMinAccessLevel === option.value && (
                           <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                             Nível mínimo atual
                           </span>
