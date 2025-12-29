@@ -5,9 +5,9 @@ export const Dashboard = () => {
   const { user } = useAuth();
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-foreground mb-2">
+    <div className="space-y-8">
+      <div className="space-y-2">
+        <h1 className="text-4xl font-bold text-foreground">
           Bem-vindo de volta! 👋
         </h1>
         <p className="text-muted-foreground">

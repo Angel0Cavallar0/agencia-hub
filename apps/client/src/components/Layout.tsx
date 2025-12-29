@@ -3,25 +3,22 @@ import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 
 export const Layout = () => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const saved = window.localStorage.getItem("sidebar-collapsed");
+    return saved === "true";
+  });
 
   useEffect(() => {
-    const saved = localStorage.getItem("sidebar-collapsed");
-    if (saved !== null) {
-      setCollapsed(JSON.parse(saved));
-    }
-  }, []);
+    window.localStorage.setItem("sidebar-collapsed", collapsed ? "true" : "false");
+  }, [collapsed]);
 
-  const handleToggleCollapse = () => {
-    const newCollapsed = !collapsed;
-    setCollapsed(newCollapsed);
-    localStorage.setItem("sidebar-collapsed", JSON.stringify(newCollapsed));
-  };
+  const sidebarWidth = collapsed ? "ml-20" : "ml-64";
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar collapsed={collapsed} onToggleCollapse={handleToggleCollapse} />
-      <main className="flex-1 overflow-y-auto bg-background">
+    <div className="flex h-screen bg-background text-foreground">
+      <Sidebar collapsed={collapsed} onToggleCollapse={() => setCollapsed((prev) => !prev)} />
+      <main className={`${sidebarWidth} flex-1 h-screen min-w-0 overflow-x-hidden overflow-y-auto p-8`}>
         <Outlet />
       </main>
     </div>

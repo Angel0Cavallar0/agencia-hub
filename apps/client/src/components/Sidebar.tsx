@@ -4,14 +4,14 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useMemo } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useTheme } from "@/contexts/ThemeContext";
+import { NavLink } from "./NavLink";
 
 type MenuItem = {
   icon: typeof Home;
@@ -31,148 +31,150 @@ type SidebarProps = {
 
 export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
   const { user, signOut } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const { logoUrl, logoIconUrl } = useTheme();
+  const displayName = useMemo(() => {
+    return user?.user_metadata?.name || user?.email?.split("@")[0] || "Usuário";
+  }, [user?.email, user?.user_metadata?.name]);
 
-  const handleLogout = async () => {
-    await signOut();
-  };
+  const initials = useMemo(() => {
+    if (displayName?.trim()) {
+      const [first = "", second = ""] = displayName.trim().split(/\s+/);
+      const combined = `${first.charAt(0)}${second.charAt(0)}`.toUpperCase();
+      return combined.trim() ? combined : first.charAt(0).toUpperCase();
+    }
+    return "?";
+  }, [displayName]);
 
-  const getInitials = (email: string) => {
-    return email.substring(0, 2).toUpperCase();
-  };
+  const iconClassName = collapsed ? "h-6 w-6" : "h-5 w-5";
+  const containerWidth = collapsed ? "w-20" : "w-64";
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "flex flex-col h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-all duration-300",
-          collapsed ? "w-20" : "w-64"
+          "fixed inset-y-0 left-0 z-50 flex h-full flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200",
+          containerWidth
         )}
       >
         {/* Header/Logo */}
-        <div className="flex items-center justify-center h-16 border-b border-sidebar-border">
-          {collapsed ? (
-            <div className="text-2xl font-bold text-sidebar-primary">AH</div>
+        <div
+          className={cn(
+            "flex items-center justify-center border-b border-sidebar-border",
+            collapsed ? "p-3" : "p-4"
+          )}
+        >
+          {(collapsed ? logoIconUrl : logoUrl) ? (
+            <img
+              src={collapsed ? logoIconUrl || logoUrl : logoUrl}
+              alt="Logo"
+              className={cn(
+                "h-10 object-contain",
+                collapsed ? "w-10" : "w-auto",
+                collapsed ? "mx-auto" : undefined
+              )}
+            />
           ) : (
-            <div className="text-xl font-bold text-sidebar-primary">Agência Hub</div>
+            <h2
+              className={cn(
+                "text-xl font-bold text-sidebar-foreground truncate",
+                collapsed ? "text-sm" : undefined
+              )}
+            >
+              Agência Hub
+            </h2>
           )}
         </div>
 
         {/* Menu Items */}
-        <nav className="flex-1 overflow-y-auto py-4">
-          <ul className="space-y-2 px-3">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+        <nav className="relative flex-1 p-4 space-y-2">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const link = (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  collapsed ? "justify-center" : undefined
+                )}
+                activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+              >
+                <Icon className={iconClassName} />
+                {!collapsed && <span className="font-medium">{item.label}</span>}
+              </NavLink>
+            );
 
-              const linkContent = (
-                <button
-                  onClick={() => navigate(item.path)}
-                  className={cn(
-                    "flex items-center w-full gap-3 px-3 py-2 rounded-md transition-colors",
-                    isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                    collapsed && "justify-center"
-                  )}
-                >
-                  <Icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
-                </button>
-              );
-
-              return (
-                <li key={item.path}>
-                  {collapsed ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                      <TooltipContent side="right">
-                        <p>{item.label}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    linkContent
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+            return collapsed ? (
+              <Tooltip key={item.path}>
+                <TooltipTrigger asChild>{link}</TooltipTrigger>
+                <TooltipContent side="right">{item.label}</TooltipContent>
+              </Tooltip>
+            ) : (
+              link
+            );
+          })}
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-sidebar-border p-3 space-y-2">
-          {/* Profile */}
-          <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-            <Avatar className="h-10 w-10 cursor-pointer">
-              <AvatarImage src={user?.user_metadata?.avatar_url} />
-              <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
-                {user?.email ? getInitials(user.email) : "?"}
-              </AvatarFallback>
-            </Avatar>
-            {!collapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {user?.user_metadata?.name || user?.email?.split("@")[0] || "Usuário"}
-                </p>
-                <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Logout Button */}
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center justify-center w-full px-3 py-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-                >
-                  <LogOut className="h-5 w-5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Sair</p>
-              </TooltipContent>
-            </Tooltip>
-          ) : (
+        <div className={cn("border-t border-sidebar-border px-4 py-2", collapsed ? "px-2" : undefined)}>
+          <div className="flex flex-col gap-3">
             <button
-              onClick={handleLogout}
-              className="flex items-center w-full gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+              type="button"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                collapsed ? "justify-center" : undefined
+              )}
             >
-              <LogOut className="h-5 w-5 shrink-0" />
-              <span className="text-sm font-medium">Sair</span>
+              <Avatar className="h-9 w-9">
+                {user?.user_metadata?.avatar_url ? (
+                  <AvatarImage src={user.user_metadata.avatar_url} alt={displayName} />
+                ) : (
+                  <AvatarFallback className="bg-sidebar-accent/20 text-sidebar-foreground">
+                    {initials}
+                  </AvatarFallback>
+                )}
+              </Avatar>
+              {!collapsed && (
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</p>
+                  <p className="text-xs text-sidebar-foreground/60 truncate">{user?.email}</p>
+                </div>
+              )}
             </button>
-          )}
 
-          {/* Toggle Collapse Button */}
-          {onToggleCollapse && (
-            <>
-              {collapsed ? (
+            <div className="flex items-center justify-center gap-3">
+              {onToggleCollapse && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
+                      type="button"
                       onClick={onToggleCollapse}
-                      className="flex items-center justify-center w-full px-3 py-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                      aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+                      className="flex items-center justify-center p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
                     >
-                      <PanelLeftOpen className="h-5 w-5" />
+                      {collapsed ? <PanelLeftOpen className={iconClassName} /> : <PanelLeftClose className={iconClassName} />}
+                      <span className="sr-only">{collapsed ? "Expandir menu" : "Recolher menu"}</span>
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p>Expandir</p>
-                  </TooltipContent>
+                  <TooltipContent side="top">{collapsed ? "Expandir" : "Recolher"}</TooltipContent>
                 </Tooltip>
-              ) : (
-                <button
-                  onClick={onToggleCollapse}
-                  className="flex items-center w-full gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-                >
-                  <PanelLeftClose className="h-5 w-5 shrink-0" />
-                  <span className="text-sm font-medium">Recolher</span>
-                </button>
               )}
-            </>
-          )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={signOut}
+                    aria-label="Sair"
+                    className="flex items-center justify-center p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                  >
+                    <LogOut className={iconClassName} />
+                    <span className="sr-only">Sair</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Sair</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
         </div>
       </aside>
     </TooltipProvider>
