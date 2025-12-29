@@ -14,14 +14,15 @@ export default function ClienteNovo() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    nome_cliente: "",
+    nome_fantasia: "",
+    razao_social: "",
     cnpj: "",
     segmento: "",
     nome_responsavel: "",
-    data_inauguracao: "",
+    email: "",
+    phone: "",
     data_contrato: "",
     cliente_ativo: true,
-    gestao_trafego: false,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,7 +31,7 @@ export default function ClienteNovo() {
 
     try {
       const { data, error } = await supabase
-        .from("clientes_infos")
+        .from("clients")
         .insert([formData])
         .select()
         .single();
@@ -38,7 +39,7 @@ export default function ClienteNovo() {
       if (error) throw error;
 
       toast.success("Cliente criado com sucesso!");
-      navigate(`/clientes/${data.id_cliente}`);
+      navigate(`/clientes/${data.id}`);
     } catch (error: any) {
       console.error("Erro ao criar cliente:", error);
       toast.error(error.message || "Erro ao criar cliente");
@@ -68,16 +69,29 @@ export default function ClienteNovo() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="nome_cliente">Nome do Cliente *</Label>
+                  <Label htmlFor="nome_fantasia">Nome Fantasia *</Label>
                   <Input
-                    id="nome_cliente"
+                    id="nome_fantasia"
                     required
-                    value={formData.nome_cliente}
+                    value={formData.nome_fantasia}
                     onChange={(e) =>
-                      setFormData({ ...formData, nome_cliente: e.target.value })
+                      setFormData({ ...formData, nome_fantasia: e.target.value })
                     }
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="razao_social">Razão Social</Label>
+                  <Input
+                    id="razao_social"
+                    value={formData.razao_social}
+                    onChange={(e) =>
+                      setFormData({ ...formData, razao_social: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="cnpj">CNPJ</Label>
                   <Input
@@ -86,9 +100,6 @@ export default function ClienteNovo() {
                     onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
                   />
                 </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="segmento">Segmento</Label>
                   <Input
@@ -97,6 +108,9 @@ export default function ClienteNovo() {
                     onChange={(e) => setFormData({ ...formData, segmento: e.target.value })}
                   />
                 </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="nome_responsavel">Nome do Responsável</Label>
                   <Input
@@ -107,17 +121,27 @@ export default function ClienteNovo() {
                     }
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                  />
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="data_inauguracao">Data de Inauguração</Label>
+                  <Label htmlFor="phone">Telefone</Label>
                   <Input
-                    id="data_inauguracao"
-                    type="date"
-                    value={formData.data_inauguracao}
+                    id="phone"
+                    value={formData.phone}
                     onChange={(e) =>
-                      setFormData({ ...formData, data_inauguracao: e.target.value })
+                      setFormData({ ...formData, phone: e.target.value })
                     }
                   />
                 </div>
@@ -134,27 +158,15 @@ export default function ClienteNovo() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="cliente_ativo">Cliente Ativo</Label>
-                  <Switch
-                    id="cliente_ativo"
-                    checked={formData.cliente_ativo}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, cliente_ativo: checked })
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="gestao_trafego">Gestão de Tráfego</Label>
-                  <Switch
-                    id="gestao_trafego"
-                    checked={formData.gestao_trafego}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, gestao_trafego: checked })
-                    }
-                  />
-                </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="cliente_ativo">Cliente Ativo</Label>
+                <Switch
+                  id="cliente_ativo"
+                  checked={formData.cliente_ativo}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, cliente_ativo: checked })
+                  }
+                />
               </div>
 
               <div className="flex gap-2 pt-4">

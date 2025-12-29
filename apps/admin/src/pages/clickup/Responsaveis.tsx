@@ -43,10 +43,10 @@ export default function ClickupResponsaveis() {
     try {
       const [clientesRes, colaboradoresRes] = await Promise.all([
         supabase
-          .from("clientes_infos")
-          .select("id_cliente, nome_cliente")
+          .from("clients")
+          .select("id, nome_fantasia")
           .eq("cliente_ativo", true)
-          .order("nome_cliente", { ascending: true }),
+          .order("nome_fantasia", { ascending: true }),
         supabase
           .from("colaborador")
           .select("id_clickup, nome, sobrenome, apelido")
@@ -150,8 +150,8 @@ export default function ClickupResponsaveis() {
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
                   {clientes.map((cliente) => (
-                    <SelectItem key={cliente.id_cliente} value={cliente.id_cliente}>
-                      {cliente.nome_cliente}
+                    <SelectItem key={cliente.id} value={cliente.id}>
+                      {cliente.nome_fantasia}
                     </SelectItem>
                   ))}
                 </SelectContent>

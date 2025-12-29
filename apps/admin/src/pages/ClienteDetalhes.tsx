@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Database } from "@/integrations/supabase/types";
 
-type Cliente = Database["public"]["Tables"]["clientes_infos"]["Row"];
+type Cliente = Database["public"]["Tables"]["clients"]["Row"];
 type Contato = Database["public"]["Tables"]["cliente_contato"]["Row"];
 
 export default function ClienteDetalhes() {
@@ -66,9 +66,9 @@ export default function ClienteDetalhes() {
 
   const fetchCliente = async () => {
     const { data, error } = await supabase
-      .from("clientes_infos")
+      .from("clients")
       .select("*")
-      .eq("id_cliente", id)
+      .eq("id", id)
       .single();
 
     if (error) {
@@ -104,25 +104,26 @@ export default function ClienteDetalhes() {
       }
 
       const allowedFields = [
-        "nome_cliente",
+        "nome_fantasia",
+        "razao_social",
         "cnpj",
         "segmento",
         "nome_responsavel",
-        "data_inauguracao",
+        "email",
+        "phone",
         "data_contrato",
         "cliente_ativo",
-        "gestao_trafego",
       ] as const;
 
       const payload = allowedFields.reduce((acc, key) => {
         (acc as any)[key] = cliente[key] ?? null;
         return acc;
-      }, {} as Database["public"]["Tables"]["clientes_infos"]["Update"]);
+      }, {} as Database["public"]["Tables"]["clients"]["Update"]);
 
       const { error } = await supabase
-        .from("clientes_infos")
+        .from("clients")
         .update(payload)
-        .eq("id_cliente", id);
+        .eq("id", id);
 
       if (error) throw error;
 
@@ -144,7 +145,7 @@ export default function ClienteDetalhes() {
       const dataToSave: Database["public"]["Tables"]["cliente_contato"]["Insert"] = {
         ...contatoFormData,
         id_cliente: id,
-        nome_cliente: cliente?.nome_cliente ?? null,
+        nome_cliente: cliente?.nome_fantasia ?? null,
       };
 
       if (editContato) {
@@ -224,7 +225,7 @@ export default function ClienteDetalhes() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{cliente.nome_cliente}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{cliente.nome_fantasia || cliente.razao_social}</h1>
             <p className="text-muted-foreground">Detalhes e contatos do cliente</p>
           </div>
         </div>
@@ -237,16 +238,29 @@ export default function ClienteDetalhes() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="nome_cliente">Nome do Cliente *</Label>
+                  <Label htmlFor="nome_fantasia">Nome Fantasia *</Label>
                   <Input
-                    id="nome_cliente"
+                    id="nome_fantasia"
                     required
-                    value={cliente.nome_cliente || ""}
+                    value={cliente.nome_fantasia || ""}
                     onChange={(e) =>
-                      setCliente({ ...cliente, nome_cliente: e.target.value })
+                      setCliente({ ...cliente, nome_fantasia: e.target.value })
                     }
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="razao_social">Razão Social</Label>
+                  <Input
+                    id="razao_social"
+                    value={cliente.razao_social || ""}
+                    onChange={(e) =>
+                      setCliente({ ...cliente, razao_social: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="cnpj">CNPJ</Label>
                   <Input
@@ -255,9 +269,6 @@ export default function ClienteDetalhes() {
                     onChange={(e) => setCliente({ ...cliente, cnpj: e.target.value })}
                   />
                 </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="segmento">Segmento</Label>
                   <Input
@@ -266,6 +277,9 @@ export default function ClienteDetalhes() {
                     onChange={(e) => setCliente({ ...cliente, segmento: e.target.value })}
                   />
                 </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="nome_responsavel">Nome do Responsável</Label>
                   <Input
@@ -276,17 +290,27 @@ export default function ClienteDetalhes() {
                     }
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={cliente.email || ""}
+                    onChange={(e) =>
+                      setCliente({ ...cliente, email: e.target.value })
+                    }
+                  />
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="data_inauguracao">Data de Inauguração</Label>
+                  <Label htmlFor="phone">Telefone</Label>
                   <Input
-                    id="data_inauguracao"
-                    type="date"
-                    value={cliente.data_inauguracao || ""}
+                    id="phone"
+                    value={cliente.phone || ""}
                     onChange={(e) =>
-                      setCliente({ ...cliente, data_inauguracao: e.target.value })
+                      setCliente({ ...cliente, phone: e.target.value })
                     }
                   />
                 </div>
@@ -303,27 +327,15 @@ export default function ClienteDetalhes() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="cliente_ativo">Cliente Ativo</Label>
-                  <Switch
-                    id="cliente_ativo"
-                    checked={cliente.cliente_ativo}
-                    onCheckedChange={(checked) =>
-                      setCliente({ ...cliente, cliente_ativo: checked })
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="gestao_trafego">Gestão de Tráfego</Label>
-                  <Switch
-                    id="gestao_trafego"
-                    checked={cliente.gestao_trafego}
-                    onCheckedChange={(checked) =>
-                      setCliente({ ...cliente, gestao_trafego: checked })
-                    }
-                  />
-                </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="cliente_ativo">Cliente Ativo</Label>
+                <Switch
+                  id="cliente_ativo"
+                  checked={cliente.cliente_ativo || false}
+                  onCheckedChange={(checked) =>
+                    setCliente({ ...cliente, cliente_ativo: checked })
+                  }
+                />
               </div>
 
               <Button type="submit" disabled={loading} className="w-full">

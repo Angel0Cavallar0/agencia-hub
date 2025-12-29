@@ -22,8 +22,8 @@ export default function Dashboard() {
 
       const [clientsRes, employeesRes, ongoingTasksRes, overdueTasksRes] = await Promise.all([
         supabase
-          .from("clientes_infos")
-          .select("id_cliente", { count: "exact", head: true })
+          .from("clients")
+          .select("id", { count: "exact", head: true })
           .eq("cliente_ativo", true),
         supabase
           .from("colaborador")

@@ -37,7 +37,7 @@ export default function ClickupTarefas() {
         .select(
           "id_subtask, nome_subtask, status, prioridade, id_colaborador_clickup, nome_colaborador, nome_lista, nome_pasta, data_entrega, id_pasta"
         ),
-      supabase.from("clientes_infos").select("id_cliente, nome_cliente"),
+      supabase.from("clients").select("id, nome_fantasia"),
       supabase
         .from("colaborador")
         .select("id_clickup, nome, sobrenome"),
@@ -115,8 +115,8 @@ export default function ClickupTarefas() {
             <SelectContent>
               <SelectItem value="">Todos</SelectItem>
               {clientes.map((cliente) => (
-                <SelectItem key={cliente.id_cliente} value={cliente.id_cliente}>
-                  {cliente.nome_cliente}
+                <SelectItem key={cliente.id} value={cliente.id}>
+                  {cliente.nome_fantasia}
                 </SelectItem>
               ))}
             </SelectContent>
