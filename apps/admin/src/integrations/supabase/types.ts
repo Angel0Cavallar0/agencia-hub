@@ -218,6 +218,45 @@ export type Database = {
           },
         ]
       }
+      clients: {
+        Row: {
+          cliente_ativo: boolean | null
+          cnpj: string | null
+          data_contrato: string | null
+          data_criacao: string | null
+          data_inauguracao: string | null
+          gestao_trafego: boolean | null
+          id_cliente: string
+          nome_cliente: string | null
+          nome_responsavel: string | null
+          segmento: string | null
+        }
+        Insert: {
+          cliente_ativo?: boolean | null
+          cnpj?: string | null
+          data_contrato?: string | null
+          data_criacao?: string | null
+          data_inauguracao?: string | null
+          gestao_trafego?: boolean | null
+          id_cliente?: string
+          nome_cliente?: string | null
+          nome_responsavel?: string | null
+          segmento?: string | null
+        }
+        Update: {
+          cliente_ativo?: boolean | null
+          cnpj?: string | null
+          data_contrato?: string | null
+          data_criacao?: string | null
+          data_inauguracao?: string | null
+          gestao_trafego?: boolean | null
+          id_cliente?: string
+          nome_cliente?: string | null
+          nome_responsavel?: string | null
+          segmento?: string | null
+        }
+        Relationships: []
+      }
       clientes_infos: {
         Row: {
           cliente_ativo: boolean | null
