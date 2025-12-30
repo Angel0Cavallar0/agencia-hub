@@ -28,6 +28,7 @@ import {
   useUpdateDeal,
   useOwners,
   useIsCRMAdmin,
+  useConvertCompanyToClient,
 } from "@/hooks/useCRM";
 
 interface DealDrawerProps {
@@ -44,6 +45,7 @@ export function DealDrawer({ deal, stages, open, onOpenChange }: DealDrawerProps
   const updateDeal = useUpdateDeal();
   const { data: owners } = useOwners();
   const isCRMAdmin = useIsCRMAdmin();
+  const convertToClient = useConvertCompanyToClient();
 
   if (!deal) return null;
 
@@ -70,13 +72,26 @@ export function DealDrawer({ deal, stages, open, onOpenChange }: DealDrawerProps
     setNewNote("");
   };
 
-  const handleStageChange = (stageId: string) => {
+  const handleStageChange = async (stageId: string) => {
     const newStage = stages.find((s) => s.id === stageId);
+    const newStatus = newStage?.is_won ? "won" : newStage?.is_lost ? "lost" : "open";
+
+    // Update deal status
     updateDeal.mutate({
       id: deal.id,
       stage_id: stageId,
-      status: newStage?.is_won ? "won" : newStage?.is_lost ? "lost" : "open",
+      status: newStatus,
     });
+
+    // Convert company to client when deal is won
+    if (newStage?.is_won && deal.company_id && deal.company && !deal.company.is_client) {
+      try {
+        await convertToClient.mutateAsync({ companyId: deal.company_id });
+      } catch (error) {
+        // Error is already handled by the mutation's onError
+        console.error("Failed to convert company to client:", error);
+      }
+    }
   };
 
   const handleOwnerChange = (ownerId: string) => {

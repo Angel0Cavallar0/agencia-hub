@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, Phone, Mail, Globe, MapPin, Pencil } from "lucide-react";
+import { Search, Plus, Phone, Mail, Globe, MapPin, Pencil, BadgeCheck } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Company,
   useCompanies,
@@ -35,10 +43,12 @@ import {
   useUpdateCompany,
   useContacts,
   useDeals,
+  useConvertCompanyToClient,
 } from "@/hooks/useCRM";
 
 export function CompaniesTab() {
   const [search, setSearch] = useState("");
+  const [clientFilter, setClientFilter] = useState<"all" | "leads" | "clients">("all");
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
@@ -55,11 +65,12 @@ export function CompaniesTab() {
     notes: "",
   });
 
-  const { data: companies, isLoading } = useCompanies(search);
+  const { data: companies, isLoading } = useCompanies(search, clientFilter);
   const { data: contacts } = useContacts();
   const { data: deals } = useDeals();
   const createCompany = useCreateCompany();
   const updateCompany = useUpdateCompany();
+  const convertToClient = useConvertCompanyToClient();
 
   const resetDialogState = () => {
     setCompanyForm({
@@ -133,6 +144,11 @@ export function CompaniesTab() {
     return deals?.filter((deal) => deal.company_id === companyId) || [];
   };
 
+  const handleConvertToClient = async (companyId: string) => {
+    await convertToClient.mutateAsync({ companyId });
+    setSelectedCompany((current) => current ? { ...current, is_client: true } : null);
+  };
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -146,6 +162,17 @@ export function CompaniesTab() {
             className="pl-9"
           />
         </div>
+
+        <Select value={clientFilter} onValueChange={(v) => setClientFilter(v as typeof clientFilter)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filtrar por tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="leads">Apenas Leads</SelectItem>
+            <SelectItem value="clients">Clientes Ativos</SelectItem>
+          </SelectContent>
+        </Select>
 
         <Button onClick={handleOpenCreate}>
           <Plus className="h-4 w-4 mr-2" />
@@ -191,7 +218,17 @@ export function CompaniesTab() {
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => setSelectedCompany(company)}
                 >
-                  <TableCell className="font-medium">{company.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      {company.name}
+                      {company.is_client && (
+                        <Badge variant="default" className="gap-1">
+                          <BadgeCheck className="h-3 w-3" />
+                          Cliente
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{company.document || "-"}</TableCell>
                   <TableCell>
                     {company.city && company.state
@@ -233,7 +270,18 @@ export function CompaniesTab() {
                 <SheetTitle>{selectedCompany.name}</SheetTitle>
               </SheetHeader>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex justify-end gap-2 pt-2">
+                {!selectedCompany.is_client && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => handleConvertToClient(selectedCompany.id)}
+                    disabled={convertToClient.isPending}
+                  >
+                    <BadgeCheck className="h-4 w-4 mr-2" />
+                    {convertToClient.isPending ? "Convertendo..." : "Converter em Cliente"}
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => handleOpenEdit(selectedCompany)}>
                   <Pencil className="h-4 w-4 mr-2" />
                   Editar
