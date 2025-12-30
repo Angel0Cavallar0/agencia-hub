@@ -53,9 +53,9 @@ export default function ClickupPastas() {
         .select("id, id_cliente, nome_cliente, nome_pasta, id_pasta, nome_espaco, id_espaco, data_criacao")
         .order("nome_pasta", { ascending: true }),
       supabase
-        .from("clientes_infos")
-        .select("id_cliente, nome_cliente")
-        .order("nome_cliente", { ascending: true }),
+        .from("clients")
+        .select("id, nome_fantasia")
+        .order("nome_fantasia", { ascending: true }),
     ]);
 
     if (pastasRes.data) setPastas(pastasRes.data);
@@ -68,10 +68,10 @@ export default function ClickupPastas() {
       return;
     }
 
-    const cliente = clientes.find((c) => c.id_cliente === formData.id_cliente);
+    const cliente = clientes.find((c) => c.id === formData.id_cliente);
     const dataToSave = {
       ...formData,
-      nome_cliente: cliente?.nome_cliente,
+      nome_cliente: cliente?.nome_fantasia,
     };
 
     if (editPasta) {
@@ -149,8 +149,8 @@ export default function ClickupPastas() {
                     </SelectTrigger>
                     <SelectContent>
                       {clientes.map((c) => (
-                        <SelectItem key={c.id_cliente} value={c.id_cliente}>
-                          {c.nome_cliente}
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.nome_fantasia}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -27,9 +27,9 @@ export default function Clientes() {
 
   const fetchClientes = async () => {
     let query = supabase
-      .from("clientes_infos")
-      .select("id_cliente, nome_cliente, cnpj, segmento, cliente_ativo, gestao_trafego, data_contrato")
-      .order("nome_cliente", { ascending: true });
+      .from("clients")
+      .select("id, nome_fantasia, razao_social, cnpj, segmento, cliente_ativo, data_contrato")
+      .order("nome_fantasia", { ascending: true });
 
     if (filterAtivo !== null) {
       query = query.eq("cliente_ativo", filterAtivo);
@@ -49,7 +49,8 @@ export default function Clientes() {
   }, [filterAtivo]);
 
   const filteredClientes = clientes.filter((cliente) =>
-    cliente.nome_cliente?.toLowerCase().includes(searchTerm.toLowerCase())
+    (cliente.nome_fantasia?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     cliente.razao_social?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -102,35 +103,29 @@ export default function Clientes() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
+                <TableHead>Nome Fantasia</TableHead>
+                <TableHead>Razão Social</TableHead>
                 <TableHead>CNPJ</TableHead>
                 <TableHead>Segmento</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Gestão de Tráfego</TableHead>
                 <TableHead>Data Contrato</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredClientes.map((cliente) => (
                 <TableRow
-                  key={cliente.id_cliente}
+                  key={cliente.id}
                   className="cursor-pointer"
-                  onClick={() => navigate(`/clientes/${cliente.id_cliente}`)}
+                  onClick={() => navigate(`/clientes/${cliente.id}`)}
                 >
-                  <TableCell className="font-medium">{cliente.nome_cliente}</TableCell>
-                  <TableCell>{cliente.cnpj}</TableCell>
-                  <TableCell>{cliente.segmento}</TableCell>
+                  <TableCell className="font-medium">{cliente.nome_fantasia || "-"}</TableCell>
+                  <TableCell>{cliente.razao_social || "-"}</TableCell>
+                  <TableCell>{cliente.cnpj || "-"}</TableCell>
+                  <TableCell>{cliente.segmento || "-"}</TableCell>
                   <TableCell>
                     <Badge variant={cliente.cliente_ativo ? "default" : "secondary"}>
                       {cliente.cliente_ativo ? "Ativo" : "Inativo"}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {cliente.gestao_trafego ? (
-                      <Badge>Sim</Badge>
-                    ) : (
-                      <Badge variant="outline">Não</Badge>
-                    )}
                   </TableCell>
                   <TableCell>
                     {cliente.data_contrato

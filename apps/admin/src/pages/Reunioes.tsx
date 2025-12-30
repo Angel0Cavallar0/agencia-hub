@@ -23,8 +23,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface Cliente {
-  id_cliente: string;
-  nome_cliente: string;
+  id: string;
+  nome_fantasia: string;
 }
 
 interface MeetingTranscription {
@@ -59,10 +59,10 @@ export default function Reunioes() {
     queryKey: ["clients-for-meetings"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("clientes_infos")
-        .select("id_cliente, nome_cliente")
+        .from("clients")
+        .select("id, nome_fantasia")
         .eq("cliente_ativo", true)
-        .order("nome_cliente");
+        .order("nome_fantasia");
 
       if (error) throw error;
       return data as Cliente[];
@@ -148,7 +148,7 @@ export default function Reunioes() {
       return;
     }
 
-    const selectedClientData = clients?.find((c) => c.id_cliente === selectedClient);
+    const selectedClientData = clients?.find((c) => c.id === selectedClient);
     if (!selectedClientData) {
       toast.error("Cliente não encontrado");
       return;
@@ -192,7 +192,7 @@ export default function Reunioes() {
           file_url: fileUrl,
           file_name: audioFile.name,
           client_id: selectedClient,
-          client_name: selectedClientData.nome_cliente,
+          client_name: selectedClientData.nome_fantasia,
           duration_seconds: audioDuration,
           duration_formatted: formatDuration(audioDuration),
           uploaded_at: new Date().toISOString(),
@@ -271,8 +271,8 @@ export default function Reunioes() {
                     </SelectTrigger>
                     <SelectContent>
                       {clients?.map((client) => (
-                        <SelectItem key={client.id_cliente} value={client.id_cliente}>
-                          {client.nome_cliente}
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.nome_fantasia}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -377,8 +377,8 @@ export default function Reunioes() {
 
                   {meetingTranscriptions?.map((meeting) => {
                     const clientName = clients?.find(
-                      (client) => client.id_cliente === meeting.id_cliente,
-                    )?.nome_cliente;
+                      (client) => client.id === meeting.id_cliente,
+                    )?.nome_fantasia;
 
                     return (
                       <button
@@ -435,7 +435,7 @@ export default function Reunioes() {
                         <div className="space-y-1">
                           <p className="text-sm text-muted-foreground">Cliente</p>
                           <p className="font-semibold">
-                            {clients?.find((c) => c.id_cliente === selectedMeeting.id_cliente)?.nome_cliente ||
+                            {clients?.find((c) => c.id === selectedMeeting.id_cliente)?.nome_fantasia ||
                               "Cliente não encontrado"}
                           </p>
                         </div>
