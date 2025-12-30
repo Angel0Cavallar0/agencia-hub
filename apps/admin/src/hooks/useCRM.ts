@@ -37,6 +37,7 @@ export interface Company {
   state: string | null;
   address: string | null;
   notes: string | null;
+  is_client: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -49,6 +50,7 @@ export interface Contact {
   phone: string | null;
   position: string | null;
   company_id: string | null;
+  client_user_id: string | null;
   notes: string | null;
   created_by: string | null;
   created_at: string;
@@ -179,14 +181,21 @@ export function useDeals(pipelineId?: string, stageId?: string, ownerId?: string
   });
 }
 
-export function useCompanies(search?: string) {
+export function useCompanies(search?: string, isClientFilter?: "all" | "leads" | "clients") {
   return useQuery({
-    queryKey: ["crm-companies", search],
+    queryKey: ["crm-companies", search, isClientFilter],
     queryFn: async () => {
       let query = supabase
         .from("crm_companies")
         .select("*")
         .order("name");
+
+      // Aplicar filtro de is_client
+      if (isClientFilter === "leads") {
+        query = query.eq("is_client", false);
+      } else if (isClientFilter === "clients") {
+        query = query.eq("is_client", true);
+      }
 
       const { data, error } = await query;
       if (error) throw error;
@@ -334,7 +343,7 @@ export function useCreateCompany() {
   return useMutation({
     mutationFn: async (company: Partial<Company> & { name: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       const { data, error } = await supabase
         .from("crm_companies")
         .insert({ ...company, created_by: user?.id })
@@ -385,7 +394,7 @@ export function useCreateContact() {
   return useMutation({
     mutationFn: async (contact: Partial<Contact> & { name: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       const { data, error } = await supabase
         .from("crm_contacts")
         .insert({ ...contact, created_by: user?.id })
@@ -436,7 +445,7 @@ export function useCreateDealNote() {
   return useMutation({
     mutationFn: async ({ deal_id, content }: { deal_id: string; content: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       const { data, error } = await supabase
         .from("crm_deal_notes")
         .insert({ deal_id, content, created_by: user?.id })
@@ -452,6 +461,63 @@ export function useCreateDealNote() {
     },
     onError: (error) => {
       toast.error("Erro ao adicionar nota: " + error.message);
+    },
+  });
+}
+
+export function useConvertCompanyToClient() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ companyId }: { companyId: string }) => {
+      // Buscar dados da empresa
+      const { data: company, error: companyError } = await supabase
+        .from("crm_companies")
+        .select("*")
+        .eq("id", companyId)
+        .single();
+
+      if (companyError) throw companyError;
+      if (!company) throw new Error("Empresa não encontrada");
+      if (company.is_client) throw new Error("Esta empresa já é um cliente ativo");
+
+      // Criar registro em clients
+      const { data: client, error: clientError } = await supabase
+        .from("clients")
+        .insert({
+          company_id: companyId,
+          nome_fantasia: company.name,
+          razao_social: company.name,
+          cnpj: company.document,
+          phone: company.phone,
+          email: company.email,
+          segmento: null,
+          nome_responsavel: null,
+          cliente_ativo: true,
+          data_contrato: new Date().toISOString().split('T')[0],
+        })
+        .select()
+        .single();
+
+      if (clientError) throw clientError;
+
+      // Atualizar is_client na empresa do CRM
+      const { error: updateError } = await supabase
+        .from("crm_companies")
+        .update({ is_client: true })
+        .eq("id", companyId);
+
+      if (updateError) throw updateError;
+
+      return { client, company };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["crm-companies"] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      toast.success("Empresa convertida em cliente ativo com sucesso!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao converter empresa: " + error.message);
     },
   });
 }
