@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Mail, BadgeCheck } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -34,33 +36,44 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  useClientContacts,
+  useCreateClientContact,
+  useUpdateClientContact,
+  useDeleteClientContact,
+  useInviteClientUser,
+  type Contact,
+} from "@/hooks/useCRM";
 import type { Database } from "@/integrations/supabase/types";
 
 type Cliente = Database["public"]["Tables"]["clients"]["Row"];
-type Contato = Database["public"]["Tables"]["cliente_contato"]["Row"];
 
 export default function ClienteDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [cliente, setCliente] = useState<Cliente | null>(null);
-  const [contatos, setContatos] = useState<Contato[]>([]);
   const [openContatoDialog, setOpenContatoDialog] = useState(false);
-  const [editContato, setEditContato] = useState<Contato | null>(null);
+  const [editContato, setEditContato] = useState<Contact | null>(null);
   const [deleteContatoId, setDeleteContatoId] = useState<string | null>(null);
-  const [contatoFormData, setContatoFormData] = useState<
-    Pick<Contato, "nome_contato" | "email" | "numero_whatsapp" | "id_grupo_whatsapp">
-  >({
-    nome_contato: "",
+  const [shouldInviteUser, setShouldInviteUser] = useState(false);
+  const [contatoFormData, setContatoFormData] = useState({
+    name: "",
     email: "",
-    numero_whatsapp: "",
-    id_grupo_whatsapp: "",
+    phone: "",
+    position: "",
+    notes: "",
   });
+
+  const { data: contatos, refetch: refetchContatos } = useClientContacts(cliente?.company_id || undefined);
+  const createContact = useCreateClientContact();
+  const updateContact = useUpdateClientContact();
+  const deleteContact = useDeleteClientContact();
+  const inviteUser = useInviteClientUser();
 
   useEffect(() => {
     if (id) {
       fetchCliente();
-      fetchContatos();
     }
   }, [id]);
 
@@ -78,20 +91,6 @@ export default function ClienteDetalhes() {
     }
 
     setCliente(data);
-  };
-
-  const fetchContatos = async () => {
-    const { data, error } = await supabase
-      .from("cliente_contato")
-      .select("id_contato, nome_contato, email, numero_whatsapp, id_grupo_whatsapp")
-      .eq("id_cliente", id);
-
-    if (error) {
-      console.error("Erro ao buscar contatos:", error);
-      return;
-    }
-
-    setContatos((data ?? []) as Contato[]);
   };
 
   const handleUpdateCliente = async (e: React.FormEvent) => {
@@ -138,73 +137,82 @@ export default function ClienteDetalhes() {
 
   const handleSaveContato = async () => {
     try {
-      if (!id) {
-        throw new Error("Cliente inválido");
+      if (!cliente?.company_id) {
+        throw new Error("Cliente não possui empresa vinculada");
       }
 
-      const dataToSave: Database["public"]["Tables"]["cliente_contato"]["Insert"] = {
-        ...contatoFormData,
-        id_cliente: id,
-        nome_cliente: cliente?.nome_fantasia ?? null,
-      };
+      if (!contatoFormData.name.trim()) {
+        throw new Error("Nome do contato é obrigatório");
+      }
+
+      if (shouldInviteUser && !contatoFormData.email?.trim()) {
+        throw new Error("Email é obrigatório para enviar convite");
+      }
 
       if (editContato) {
-        const { error } = await supabase
-          .from("cliente_contato")
-          .update(dataToSave)
-          .eq("id_contato", editContato.id_contato);
-
-        if (error) throw error;
-        toast.success("Contato atualizado!");
+        // Update existing contact
+        await updateContact.mutateAsync({
+          id: editContato.id,
+          company_id: cliente.company_id,
+          ...contatoFormData,
+        });
       } else {
-        const { error } = await supabase.from("cliente_contato").insert(dataToSave);
+        // Create new contact
+        const newContact = await createContact.mutateAsync({
+          ...contatoFormData,
+          company_id: cliente.company_id,
+        });
 
-        if (error) throw error;
-        toast.success("Contato adicionado!");
+        // Send invite if requested
+        if (shouldInviteUser && contatoFormData.email && newContact) {
+          await inviteUser.mutateAsync({
+            email: contatoFormData.email,
+            contactId: newContact.id,
+            companyId: cliente.company_id,
+          });
+        }
       }
 
       setOpenContatoDialog(false);
       setEditContato(null);
+      setShouldInviteUser(false);
       setContatoFormData({
-        nome_contato: "",
+        name: "",
         email: "",
-        numero_whatsapp: "",
-        id_grupo_whatsapp: "",
+        phone: "",
+        position: "",
+        notes: "",
       });
-      fetchContatos();
+      refetchContatos();
     } catch (error: any) {
       console.error("Erro ao salvar contato:", error);
       toast.error(error.message || "Erro ao salvar contato");
     }
   };
 
-  const handleEditContato = (contato: Contato) => {
+  const handleEditContato = (contato: Contact) => {
     setEditContato(contato);
     setContatoFormData({
-      nome_contato: contato.nome_contato || "",
+      name: contato.name || "",
       email: contato.email || "",
-      numero_whatsapp: contato.numero_whatsapp || "",
-      id_grupo_whatsapp: contato.id_grupo_whatsapp || "",
+      phone: contato.phone || "",
+      position: contato.position || "",
+      notes: contato.notes || "",
     });
+    setShouldInviteUser(false);
     setOpenContatoDialog(true);
   };
 
   const handleDeleteContato = async (contatoId: string) => {
-    try {
-      const { error } = await supabase
-        .from("cliente_contato")
-        .delete()
-        .eq("id_contato", contatoId);
+    if (!cliente?.company_id) return;
 
-      if (error) throw error;
+    await deleteContact.mutateAsync({
+      id: contatoId,
+      company_id: cliente.company_id,
+    });
 
-      toast.success("Contato removido!");
-      fetchContatos();
-    } catch (error: any) {
-      console.error("Erro ao remover contato:", error);
-      toast.error(error.message || "Erro ao remover contato");
-    }
     setDeleteContatoId(null);
+    refetchContatos();
   };
 
   if (!cliente) {
@@ -354,11 +362,13 @@ export default function ClienteDetalhes() {
                   size="sm"
                   onClick={() => {
                     setEditContato(null);
+                    setShouldInviteUser(false);
                     setContatoFormData({
-                      nome_contato: "",
+                      name: "",
                       email: "",
-                      numero_whatsapp: "",
-                      id_grupo_whatsapp: "",
+                      phone: "",
+                      position: "",
+                      notes: "",
                     });
                   }}
                 >
@@ -366,7 +376,7 @@ export default function ClienteDetalhes() {
                   Adicionar Contato
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
                     {editContato ? "Editar Contato" : "Novo Contato"}
@@ -374,15 +384,16 @@ export default function ClienteDetalhes() {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Nome do Contato *</Label>
+                    <Label>Nome *</Label>
                     <Input
-                      value={contatoFormData.nome_contato}
+                      value={contatoFormData.name}
                       onChange={(e) =>
                         setContatoFormData({
                           ...contatoFormData,
-                          nome_contato: e.target.value,
+                          name: e.target.value,
                         })
                       }
+                      placeholder="Nome do contato"
                     />
                   </div>
                   <div className="space-y-2">
@@ -393,41 +404,76 @@ export default function ClienteDetalhes() {
                       onChange={(e) =>
                         setContatoFormData({ ...contatoFormData, email: e.target.value })
                       }
+                      placeholder="email@exemplo.com"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>WhatsApp</Label>
+                    <Label>Telefone</Label>
                     <Input
-                      value={contatoFormData.numero_whatsapp}
+                      value={contatoFormData.phone}
                       onChange={(e) =>
                         setContatoFormData({
                           ...contatoFormData,
-                          numero_whatsapp: e.target.value,
+                          phone: e.target.value,
                         })
                       }
+                      placeholder="(00) 00000-0000"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>ID Grupo WhatsApp</Label>
+                    <Label>Cargo/Posição</Label>
                     <Input
-                      value={contatoFormData.id_grupo_whatsapp}
+                      value={contatoFormData.position}
                       onChange={(e) =>
                         setContatoFormData({
                           ...contatoFormData,
-                          id_grupo_whatsapp: e.target.value,
+                          position: e.target.value,
                         })
                       }
+                      placeholder="Ex: Gerente, Diretor"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>Observações</Label>
+                    <Textarea
+                      value={contatoFormData.notes}
+                      onChange={(e) =>
+                        setContatoFormData({
+                          ...contatoFormData,
+                          notes: e.target.value,
+                        })
+                      }
+                      placeholder="Informações adicionais sobre o contato"
+                      rows={3}
+                    />
+                  </div>
+                  {!editContato && (
+                    <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
+                      <Checkbox
+                        id="invite"
+                        checked={shouldInviteUser}
+                        onCheckedChange={(checked) => setShouldInviteUser(checked as boolean)}
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="invite" className="flex items-center gap-2 cursor-pointer">
+                          <Mail className="h-4 w-4" />
+                          <span className="font-medium">Convidar para o sistema</span>
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Enviar email de convite para o contato criar senha e acessar o portal do cliente
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <Button onClick={handleSaveContato} className="w-full">
-                    Salvar
+                    {editContato ? "Atualizar" : "Salvar"}
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
           </CardHeader>
           <CardContent>
-            {contatos.length === 0 ? (
+            {!contatos || contatos.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
                 Nenhum contato cadastrado
               </p>
@@ -437,19 +483,26 @@ export default function ClienteDetalhes() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>
+                      <TableHead>Cargo</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>WhatsApp</TableHead>
+                      <TableHead>Telefone</TableHead>
                       <TableHead className="w-[100px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {contatos.map((contato) => (
-                      <TableRow key={contato.id_contato}>
+                      <TableRow key={contato.id}>
                         <TableCell className="font-medium">
-                          {contato.nome_contato}
+                          <div className="flex items-center gap-2">
+                            {contato.name}
+                            {contato.client_user_id && (
+                              <BadgeCheck className="h-4 w-4 text-primary" title="Tem acesso ao sistema" />
+                            )}
+                          </div>
                         </TableCell>
+                        <TableCell>{contato.position || "-"}</TableCell>
                         <TableCell>{contato.email || "-"}</TableCell>
-                        <TableCell>{contato.numero_whatsapp || "-"}</TableCell>
+                        <TableCell>{contato.phone || "-"}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button
@@ -462,7 +515,7 @@ export default function ClienteDetalhes() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => setDeleteContatoId(contato.id_contato)}
+                              onClick={() => setDeleteContatoId(contato.id)}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>

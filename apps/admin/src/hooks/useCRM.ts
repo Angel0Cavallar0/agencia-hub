@@ -513,3 +513,156 @@ export function useUpsertCRMSetting() {
     },
   });
 }
+
+// Client-specific contact management hooks
+export function useClientContacts(companyId?: string) {
+  return useQuery({
+    queryKey: ["client-contacts", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+
+      const { data, error } = await supabase
+        .from("crm_contacts")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("name");
+
+      if (error) throw error;
+      return data as Contact[];
+    },
+    enabled: !!companyId,
+  });
+}
+
+export function useCreateClientContact() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (contact: Partial<Contact> & { name: string; company_id: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data, error } = await supabase
+        .from("crm_contacts")
+        .insert({ ...contact, created_by: user?.id })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Contact;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["client-contacts", variables.company_id] });
+      queryClient.invalidateQueries({ queryKey: ["crm-contacts"] });
+      toast.success("Contato criado com sucesso!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao criar contato: " + error.message);
+    },
+  });
+}
+
+export function useUpdateClientContact() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, company_id, ...updates }: Partial<Contact> & { id: string; company_id: string }) => {
+      const { data, error } = await supabase
+        .from("crm_contacts")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Contact;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["client-contacts", variables.company_id] });
+      queryClient.invalidateQueries({ queryKey: ["crm-contacts"] });
+      toast.success("Contato atualizado com sucesso!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao atualizar contato: " + error.message);
+    },
+  });
+}
+
+export function useDeleteClientContact() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, company_id }: { id: string; company_id: string }) => {
+      const { error } = await supabase
+        .from("crm_contacts")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+      return { id, company_id };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["client-contacts", data.company_id] });
+      queryClient.invalidateQueries({ queryKey: ["crm-contacts"] });
+      toast.success("Contato removido com sucesso!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao remover contato: " + error.message);
+    },
+  });
+}
+
+export function useInviteClientUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      email,
+      contactId,
+      companyId
+    }: {
+      email: string;
+      contactId: string;
+      companyId: string;
+    }) => {
+      // Invite user via Supabase Auth
+      const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
+        data: {
+          contact_id: contactId,
+          company_id: companyId,
+          user_type: 'client'
+        }
+      });
+
+      if (inviteError) throw inviteError;
+      if (!inviteData.user) throw new Error("Falha ao criar usuário");
+
+      // Update contact with user ID
+      const { error: updateContactError } = await supabase
+        .from("crm_contacts")
+        .update({ client_user_id: inviteData.user.id })
+        .eq("id", contactId);
+
+      if (updateContactError) throw updateContactError;
+
+      // Create role record
+      const { error: roleError } = await supabase
+        .from("client_user_role")
+        .insert({
+          client_user_id: inviteData.user.id,
+          role: "client"
+        });
+
+      if (roleError) throw roleError;
+
+      return { user: inviteData.user, contactId };
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["client-contacts", variables.companyId] });
+      queryClient.invalidateQueries({ queryKey: ["crm-contacts"] });
+      toast.success("Convite enviado com sucesso! O cliente receberá um email para criar a senha.");
+    },
+    onError: (error) => {
+      toast.error("Erro ao enviar convite: " + error.message);
+    },
+  });
+}
