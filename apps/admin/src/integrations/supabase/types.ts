@@ -218,6 +218,33 @@ export type Database = {
           },
         ]
       }
+      client_user_role: {
+        Row: {
+          client_user_id: string | null
+          created_at: string | null
+          email: string
+          id: string
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_user_id?: string | null
+          created_at?: string | null
+          email: string
+          id?: string
+          role?: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_user_id?: string | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       clientes_infos: {
         Row: {
           cliente_ativo: boolean | null
@@ -516,6 +543,8 @@ export type Database = {
       }
       crm_contacts: {
         Row: {
+          client_id: string | null
+          client_user_id: string | null
           company_id: string | null
           created_at: string | null
           created_by: string | null
@@ -528,6 +557,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          client_id?: string | null
+          client_user_id?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -540,6 +571,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          client_id?: string | null
+          client_user_id?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -552,6 +585,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "crm_contacts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "crm_contacts_company_id_fkey"
             columns: ["company_id"]

@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Mail } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Table,
   TableBody,
@@ -23,6 +25,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -37,24 +41,34 @@ import {
 import type { Database } from "@/integrations/supabase/types";
 
 type Cliente = Database["public"]["Tables"]["clients"]["Row"];
-type Contato = Database["public"]["Tables"]["cliente_contato"]["Row"];
+type CRMContact = Database["public"]["Tables"]["crm_contacts"]["Row"];
 
 export default function ClienteDetalhes() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [cliente, setCliente] = useState<Cliente | null>(null);
-  const [contatos, setContatos] = useState<Contato[]>([]);
+  const [contatos, setContatos] = useState<CRMContact[]>([]);
   const [openContatoDialog, setOpenContatoDialog] = useState(false);
-  const [editContato, setEditContato] = useState<Contato | null>(null);
+  const [editContato, setEditContato] = useState<CRMContact | null>(null);
   const [deleteContatoId, setDeleteContatoId] = useState<string | null>(null);
-  const [contatoFormData, setContatoFormData] = useState<
-    Pick<Contato, "nome_contato" | "email" | "numero_whatsapp" | "id_grupo_whatsapp">
-  >({
-    nome_contato: "",
+  const [sendInvite, setSendInvite] = useState(false);
+  const [invitePassword, setInvitePassword] = useState("");
+  const [isInviting, setIsInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [contatoFormData, setContatoFormData] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+    position: string;
+    notes: string;
+  }>({
+    name: "",
     email: "",
-    numero_whatsapp: "",
-    id_grupo_whatsapp: "",
+    phone: "",
+    position: "",
+    notes: "",
   });
 
   useEffect(() => {
@@ -82,16 +96,18 @@ export default function ClienteDetalhes() {
 
   const fetchContatos = async () => {
     const { data, error } = await supabase
-      .from("cliente_contato")
-      .select("id_contato, nome_contato, email, numero_whatsapp, id_grupo_whatsapp")
-      .eq("id_cliente", id);
+      .from("crm_contacts")
+      .select("*")
+      .eq("client_id", id)
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Erro ao buscar contatos:", error);
+      toast.error("Erro ao carregar contatos");
       return;
     }
 
-    setContatos((data ?? []) as Contato[]);
+    setContatos(data ?? []);
   };
 
   const handleUpdateCliente = async (e: React.FormEvent) => {
@@ -142,34 +158,64 @@ export default function ClienteDetalhes() {
         throw new Error("Cliente inválido");
       }
 
-      const dataToSave: Database["public"]["Tables"]["cliente_contato"]["Insert"] = {
-        ...contatoFormData,
-        id_cliente: id,
-        nome_cliente: cliente?.nome_fantasia ?? null,
+      if (!contatoFormData.name || !contatoFormData.email) {
+        toast.error("Nome e email são obrigatórios");
+        return;
+      }
+
+      if (sendInvite && !invitePassword) {
+        setInviteError("Informe sua senha para enviar o convite");
+        return;
+      }
+
+      const dataToSave: Database["public"]["Tables"]["crm_contacts"]["Insert"] = {
+        name: contatoFormData.name,
+        email: contatoFormData.email,
+        phone: contatoFormData.phone || null,
+        position: contatoFormData.position || null,
+        notes: contatoFormData.notes || null,
+        client_id: id,
+        created_by: user?.id || null,
       };
 
       if (editContato) {
         const { error } = await supabase
-          .from("cliente_contato")
+          .from("crm_contacts")
           .update(dataToSave)
-          .eq("id_contato", editContato.id_contato);
+          .eq("id", editContato.id);
 
         if (error) throw error;
         toast.success("Contato atualizado!");
+
+        if (sendInvite && !editContato.client_user_id) {
+          await handleInviteContact(editContato.id);
+        }
       } else {
-        const { error } = await supabase.from("cliente_contato").insert(dataToSave);
+        const { data: newContact, error } = await supabase
+          .from("crm_contacts")
+          .insert(dataToSave)
+          .select()
+          .single();
 
         if (error) throw error;
         toast.success("Contato adicionado!");
+
+        if (sendInvite && newContact) {
+          await handleInviteContact(newContact.id);
+        }
       }
 
       setOpenContatoDialog(false);
       setEditContato(null);
+      setSendInvite(false);
+      setInvitePassword("");
+      setInviteError(null);
       setContatoFormData({
-        nome_contato: "",
+        name: "",
         email: "",
-        numero_whatsapp: "",
-        id_grupo_whatsapp: "",
+        phone: "",
+        position: "",
+        notes: "",
       });
       fetchContatos();
     } catch (error: any) {
@@ -178,23 +224,72 @@ export default function ClienteDetalhes() {
     }
   };
 
-  const handleEditContato = (contato: Contato) => {
+  const handleInviteContact = async (contactId: string) => {
+    if (!invitePassword || !user?.email) {
+      setInviteError("Senha é obrigatória para enviar o convite");
+      return;
+    }
+
+    setIsInviting(true);
+    setInviteError(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-client-contact', {
+        body: {
+          email: contatoFormData.email,
+          contactId: contactId,
+          clientId: id,
+          password: invitePassword,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (data?.userId) {
+        toast.success('Convite enviado! O contato receberá um email para definir a senha.');
+        fetchContatos();
+      }
+    } catch (error: any) {
+      const rawMessage = typeof error?.message === "string" ? error.message : null;
+      const isInvalidPassword =
+        rawMessage?.toLowerCase().includes("invalid login credentials") ||
+        rawMessage === "Senha incorreta";
+      const displayMessage = isInvalidPassword
+        ? "Senha incorreta. Tente novamente."
+        : rawMessage || "Erro ao enviar convite";
+
+      setInviteError(displayMessage);
+      toast.error(displayMessage);
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleEditContato = (contato: CRMContact) => {
     setEditContato(contato);
     setContatoFormData({
-      nome_contato: contato.nome_contato || "",
+      name: contato.name || "",
       email: contato.email || "",
-      numero_whatsapp: contato.numero_whatsapp || "",
-      id_grupo_whatsapp: contato.id_grupo_whatsapp || "",
+      phone: contato.phone || "",
+      position: contato.position || "",
+      notes: contato.notes || "",
     });
+    setSendInvite(false);
+    setInvitePassword("");
+    setInviteError(null);
     setOpenContatoDialog(true);
   };
 
   const handleDeleteContato = async (contatoId: string) => {
     try {
       const { error } = await supabase
-        .from("cliente_contato")
+        .from("crm_contacts")
         .delete()
-        .eq("id_contato", contatoId);
+        .eq("id", contatoId);
 
       if (error) throw error;
 
@@ -355,38 +450,45 @@ export default function ClienteDetalhes() {
                   onClick={() => {
                     setEditContato(null);
                     setContatoFormData({
-                      nome_contato: "",
+                      name: "",
                       email: "",
-                      numero_whatsapp: "",
-                      id_grupo_whatsapp: "",
+                      phone: "",
+                      position: "",
+                      notes: "",
                     });
+                    setSendInvite(false);
+                    setInvitePassword("");
+                    setInviteError(null);
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Adicionar Contato
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-md">
                 <DialogHeader>
                   <DialogTitle>
                     {editContato ? "Editar Contato" : "Novo Contato"}
                   </DialogTitle>
+                  <DialogDescription>
+                    Preencha os dados do contato. Você pode opcionalmente enviar um convite para o sistema.
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Nome do Contato *</Label>
                     <Input
-                      value={contatoFormData.nome_contato}
+                      value={contatoFormData.name}
                       onChange={(e) =>
                         setContatoFormData({
                           ...contatoFormData,
-                          nome_contato: e.target.value,
+                          name: e.target.value,
                         })
                       }
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Email</Label>
+                    <Label>Email *</Label>
                     <Input
                       type="email"
                       value={contatoFormData.email}
@@ -396,33 +498,93 @@ export default function ClienteDetalhes() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>WhatsApp</Label>
+                    <Label>Telefone</Label>
                     <Input
-                      value={contatoFormData.numero_whatsapp}
+                      value={contatoFormData.phone}
                       onChange={(e) =>
                         setContatoFormData({
                           ...contatoFormData,
-                          numero_whatsapp: e.target.value,
+                          phone: e.target.value,
                         })
                       }
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>ID Grupo WhatsApp</Label>
+                    <Label>Cargo</Label>
                     <Input
-                      value={contatoFormData.id_grupo_whatsapp}
+                      value={contatoFormData.position}
                       onChange={(e) =>
                         setContatoFormData({
                           ...contatoFormData,
-                          id_grupo_whatsapp: e.target.value,
+                          position: e.target.value,
                         })
                       }
                     />
                   </div>
-                  <Button onClick={handleSaveContato} className="w-full">
-                    Salvar
-                  </Button>
+                  <div className="space-y-2">
+                    <Label>Observações</Label>
+                    <Input
+                      value={contatoFormData.notes}
+                      onChange={(e) =>
+                        setContatoFormData({
+                          ...contatoFormData,
+                          notes: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  {(!editContato || !editContato.client_user_id) && (
+                    <>
+                      <div className="flex items-center space-x-2 pt-2">
+                        <Checkbox
+                          id="sendInvite"
+                          checked={sendInvite}
+                          onCheckedChange={(checked) => {
+                            setSendInvite(checked as boolean);
+                            if (!checked) {
+                              setInvitePassword("");
+                              setInviteError(null);
+                            }
+                          }}
+                        />
+                        <Label htmlFor="sendInvite" className="text-sm font-normal cursor-pointer">
+                          Enviar convite para acessar o sistema
+                        </Label>
+                      </div>
+
+                      {sendInvite && (
+                        <div className="space-y-2 bg-muted p-4 rounded-md">
+                          <Label>Sua senha (para confirmar o envio) *</Label>
+                          <Input
+                            type="password"
+                            placeholder="Digite sua senha"
+                            value={invitePassword}
+                            onChange={(e) => {
+                              setInvitePassword(e.target.value);
+                              setInviteError(null);
+                            }}
+                          />
+                          {inviteError && (
+                            <p className="text-sm text-destructive">{inviteError}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            O contato receberá um email para criar sua senha de acesso ao portal do cliente.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
+                <DialogFooter>
+                  <Button
+                    onClick={handleSaveContato}
+                    className="w-full"
+                    disabled={isInviting}
+                  >
+                    {isInviting ? "Enviando convite..." : "Salvar"}
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </CardHeader>
@@ -438,18 +600,31 @@ export default function ClienteDetalhes() {
                     <TableRow>
                       <TableHead>Nome</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>WhatsApp</TableHead>
+                      <TableHead>Telefone</TableHead>
+                      <TableHead>Cargo</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead className="w-[100px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {contatos.map((contato) => (
-                      <TableRow key={contato.id_contato}>
+                      <TableRow key={contato.id}>
                         <TableCell className="font-medium">
-                          {contato.nome_contato}
+                          {contato.name}
                         </TableCell>
                         <TableCell>{contato.email || "-"}</TableCell>
-                        <TableCell>{contato.numero_whatsapp || "-"}</TableCell>
+                        <TableCell>{contato.phone || "-"}</TableCell>
+                        <TableCell>{contato.position || "-"}</TableCell>
+                        <TableCell>
+                          {contato.client_user_id ? (
+                            <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                              <Mail className="h-3 w-3" />
+                              Convidado
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Sem acesso</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button
@@ -462,7 +637,7 @@ export default function ClienteDetalhes() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => setDeleteContatoId(contato.id_contato)}
+                              onClick={() => setDeleteContatoId(contato.id)}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
